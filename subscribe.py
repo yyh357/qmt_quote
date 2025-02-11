@@ -10,16 +10,10 @@ from config import FILE_STOCK, COUNT_STOCK
 from config import TICK_STOCK, TICK_INDEX
 from utils import dict_to_dataframe, get_mmap, update_array
 
-
-class _a:
-    pass
-
-
-A = _a()
-
 # 开盘前需要先更新板块数据，因为会有新股上市
 xtdata.download_sector_data()
 
+A = Exception()
 A.沪深A股 = xtdata.get_stock_list_in_sector("沪深A股")
 A.沪深指数 = xtdata.get_stock_list_in_sector("沪深指数")
 A.沪深基金 = xtdata.get_stock_list_in_sector("沪深基金")

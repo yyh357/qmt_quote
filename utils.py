@@ -28,7 +28,7 @@ def modify_file_size(file_path: str, new_size: int) -> None:
 
     if os.path.getsize(file_path) < new_size:
         with open(file_path, "wb") as f:
-            f.seek(new_size, os.SEEK_SET)
+            f.seek(new_size - 1, os.SEEK_SET)
             f.write(b'\0')
             f.flush()
             print(f"File {file_path} has been extended to {new_size} bytes.")
