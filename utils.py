@@ -360,7 +360,7 @@ class RangeUpdater:
             self.step = self.overlap * 10
         else:
             self.step = step
-        assert self.step > self.overlap * 3, "step must be greater than overlap*3"
+        assert self.step >= self.overlap * 2, "step must be greater than overlap*2"
 
     def update(self, current: int):
         # current = int(current)
