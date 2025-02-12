@@ -1,14 +1,18 @@
 import os
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 import pandas as pd
 import polars as pl
 
+_EXT1_ = ".bin"
+_EXT2_ = ".idx"
+_COUNT_ = 64
 
-def modify_file_size(file_path: str, new_size: int) -> None:
-    """修改文件大小
+
+def extend_file_size(file_path: str, new_size: int) -> None:
+    """扩展文件大小
 
     Parameters
     ----------
@@ -17,21 +21,53 @@ def modify_file_size(file_path: str, new_size: int) -> None:
     new_size : int
         新的文件大小
 
-    Raises
-    ------
-    ValueError
-        如果没有写权限
+    """
+    old_size = os.path.getsize(file_path)
+    if old_size >= new_size:
+        return
+
+    with open(file_path, "r+") as f:
+        f.truncate(new_size)
+        f.flush()
+        print(f"File {file_path} has been extended from {old_size} to {new_size} bytes.")
+
+
+def truncate_file_size(file_path: str, new_size: int) -> None:
+    """截断文件大小
+
+    Parameters
+    ----------
+    file_path : str
+        文件路径
+    new_size : int
+        新的文件大小
 
     """
-    if not os.access(file_path, os.W_OK):
-        raise ValueError("Permission denied. You don't have read permission.")
+    old_size = os.path.getsize(file_path)
+    if old_size <= new_size:
+        return
+    if new_size == 0:
+        return
 
-    if os.path.getsize(file_path) < new_size:
-        with open(file_path, "wb") as f:
-            f.seek(new_size - 1, os.SEEK_SET)
-            f.write(b'\0')
-            f.flush()
-            print(f"File {file_path} has been extended to {new_size} bytes.")
+    with open(file_path, "r+") as f:
+        f.truncate(new_size)
+        f.flush()
+        print(f"File {file_path} has been truncated from {old_size} to {new_size} bytes.")
+
+
+def mmap_truncate(filename: str):
+    """截断内存映射文件
+
+    Parameters
+    ----------
+    filename
+
+    """
+    file1 = filename + _EXT1_
+    file2 = filename + _EXT2_
+
+    arr2 = np.memmap(file2, dtype=np.uint64, shape=(_COUNT_,), mode="r")
+    truncate_file_size(file1, int(arr2[0] * arr2[1]))
 
 
 def get_mmap(filename: str, dtype: np.dtype, count: int, readonly: bool = True, resize: bool = False) -> Tuple[np.ndarray, np.ndarray]:
@@ -56,24 +92,29 @@ def get_mmap(filename: str, dtype: np.dtype, count: int, readonly: bool = True, 
         内存映射文件和索引文件
 
     """
-    file1 = filename + ".bin"
-    file2 = filename + ".idx"
-    count2 = 64
+    file1 = filename + _EXT1_
+    file2 = filename + _EXT2_
+
     if Path(file1).exists():
         print(f"File {file1} already exists.")
         if resize:
-            modify_file_size(file1, count * dtype.itemsize)
+            extend_file_size(file1, count * dtype.itemsize)
+        else:
+            # !!! 一定要调整，否则会扩展文件大小，所以这里重新调整
+            count = os.path.getsize(file1) // dtype.itemsize
     else:
         print(f"Creating new file {file1}.")
         np.memmap(file1, dtype=dtype, shape=(count,), mode="w+")
-        np.memmap(file2, dtype=np.uint64, shape=(count2,), mode="w+")
+        np.memmap(file2, dtype=np.uint64, shape=(_COUNT_,), mode="w+")
 
     if readonly:
         arr1 = np.memmap(file1, dtype=dtype, shape=(count,), mode="r")
-        arr2 = np.memmap(file2, dtype=np.uint64, shape=(count2,), mode="r")
+        arr2 = np.memmap(file2, dtype=np.uint64, shape=(_COUNT_,), mode="r")
     else:
         arr1 = np.memmap(file1, dtype=dtype, shape=(count,), mode="r+")
-        arr2 = np.memmap(file2, dtype=np.uint64, shape=(count2,), mode="r+")
+        arr2 = np.memmap(file2, dtype=np.uint64, shape=(_COUNT_,), mode="r+")
+        # 1号位置放itemsize，后面可能用到
+        arr2[1] = dtype.itemsize
 
     return arr1, arr2
 
@@ -134,13 +175,14 @@ def update_array(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame) -> Tuple[
     end = start + step
     arr1[start:end] = arr
     arr2[0] = end
-    return start, step, end
+    return int(start), step, int(end)
 
 
 def arr_to_pd(arr: np.ndarray) -> pd.DataFrame:
     """numpy数组转pandas DataFrame"""
     df = pd.DataFrame(arr)
     df["time"] = pd.to_datetime(df["time"], unit="ms", utc=True).dt.tz_convert("Asia/Shanghai")
+    df["_time_"] = df["time"].dt.time
     return df
 
 
@@ -150,7 +192,31 @@ def arr_to_pl(arr: np.ndarray) -> pl.DataFrame:
     df = df.with_columns(
         pl.col("time").cast(pl.Datetime(time_unit="ms", time_zone="Asia/Shanghai"))
     )
+    df = df.with_columns(
+        _time_=pl.col("time").dt.time()
+    )
     return df
+
+
+def filter__0930_1130__1300_1500(df: pl.DataFrame, col: str = '_time_') -> pl.DataFrame:
+    """过滤9:30-11:30和13:00-15:00的数据
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        polars DataFrame
+    col : str
+        时间列名，默认'_time_'
+
+    Notes
+    -----
+    丢弃了边缘超出范围的数据。假设少量几秒数据对K线影响不大
+
+    """
+    t = pl.col(col)
+    t1 = (t >= pl.time(9, 30)) & (t < pl.time(11, 30))
+    t2 = (t >= pl.time(13, 00)) & (t < pl.time(15, 00))
+    return df.filter(t1 | t2)
 
 
 def tick_to_minute(df: pl.DataFrame, period: str = "1m") -> pl.DataFrame:
@@ -201,6 +267,7 @@ def tick_to_minute(df: pl.DataFrame, period: str = "1m") -> pl.DataFrame:
             amount=pl.sum("amount_diff"),
             pre_close=pl.first("lastClose"),
         )
+        .with_columns(duration=pl.col("close_dt") - pl.col("open_dt"))
     )
     return df
 
@@ -234,6 +301,69 @@ def tick_to_day(df: pl.DataFrame) -> pl.DataFrame:
             volume=pl.last("pvolume"),
             amount=pl.last("amount"),
             pre_close=pl.first("lastClose"),
-        )
+        ).with_columns(duration=pl.col("close_dt") - pl.col("open_dt"))
     )
     return df
+
+
+def concat_unique(df1: pl.DataFrame, df2: pl.DataFrame) -> pl.DataFrame:
+    """合并去重DataFrame
+
+    数据是分批到来的，所以合成K线也是分批的，但很有可能出现不完整的数据
+
+    1. 前一DataFrame后期数据不完整
+    2. 后一DataFrame前期数据不完整
+    3. 前后DataFrame有重复数据
+
+    """
+    if df1 is None:
+        return df2
+    else:
+        df = pl.concat([df1, df2])
+    # 另一种方法
+    # df.sort("code", "time", "duration").group_by("code", "time", maintain_order=True).last()
+    return df.sort("code", "time", "duration").unique(subset=["code", "time"], keep='last', maintain_order=True)
+
+
+class RangeUpdater:
+    """范围增量更新
+
+    由于全量数据计算量大，计算一次约12秒，因此采用增量更新的方式，每次只计算一定范围的数据。
+    每次更新的范围为：[start, end)，每次更新的步长为step，每次更新的重叠范围为overlap。
+
+    Attributes
+    ----------
+    df : pl.DataFrame
+        合并去重后的DataFrame
+    start : int
+        起始位置
+    end : int
+        结束位置
+    """
+
+    def __init__(self, overlap: int = 500_000, step: Optional[int] = None):
+        """初始化增量更新器
+
+        Parameters
+        ----------
+        overlap : int
+            重叠范围。建议设置为3分钟的tick数据量
+        step : int, optional
+            步长，默认None，建议设置为30分钟的tick数据量
+
+        """
+        self.df = None
+        self.start = 0
+        self.end = 0
+        self.overlap = overlap
+        if step is None:
+            self.step = self.overlap * 10
+        else:
+            self.step = step
+        assert self.step > self.overlap * 3, "step must be greater than overlap*3"
+
+    def update(self, current: int):
+        # current = int(current)
+        self.start = max(self.end - self.overlap, 0)
+        self.end = min(self.start + self.step, current)
+        return self.start, self.end, current
