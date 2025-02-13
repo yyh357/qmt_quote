@@ -182,7 +182,7 @@ def arr_to_pd(arr: np.ndarray) -> pd.DataFrame:
     """numpy数组转pandas DataFrame"""
     df = pd.DataFrame(arr)
     df["time"] = pd.to_datetime(df["time"], unit="ms", utc=True).dt.tz_convert("Asia/Shanghai")
-    df["_time_"] = df["time"].dt.time
+    # df["_time_"] = df["time"].dt.time
     return df
 
 
@@ -192,9 +192,7 @@ def arr_to_pl(arr: np.ndarray) -> pl.DataFrame:
     df = df.with_columns(
         pl.col("time").cast(pl.Datetime(time_unit="ms", time_zone="Asia/Shanghai"))
     )
-    df = df.with_columns(
-        _time_=pl.col("time").dt.time()
-    )
+    # df = df.with_columns(_time_=pl.col("time").dt.time())
     return df
 
 
@@ -325,15 +323,15 @@ def concat_unique(df1: pl.DataFrame, df2: pl.DataFrame) -> pl.DataFrame:
     return df.sort("code", "time", "duration").unique(subset=["code", "time"], keep='last', maintain_order=True)
 
 
-class RangeUpdater:
-    """范围增量更新
+class SliceUpdater:
+    """切片增量更新
 
     由于全量数据计算量大，计算一次约12秒，因此采用增量更新的方式，每次只计算一定范围的数据。
     每次更新的范围为：[start, end)，每次更新的步长为step，每次更新的重叠范围为overlap。
 
     Attributes
     ----------
-    df : pl.DataFrame
+    df1 : pl.DataFrame
         合并去重后的DataFrame
     start : int
         起始位置
@@ -352,9 +350,17 @@ class RangeUpdater:
             步长，默认None，建议设置为30分钟的tick数据量
 
         """
-        self.df = None
+        # 合并K线时存储数据使用，所以预留了几个位置
+        # 比如1分钟、日线，或者5分钟等等
+        self.df1 = None
+        self.df2 = None
+        self.df3 = None
+        self.df4 = None
+        self.df5 = None
+
         self.start = 0
         self.end = 0
+        self.current = 0
         self.overlap = overlap
         if step is None:
             self.step = self.overlap * 10
@@ -363,7 +369,23 @@ class RangeUpdater:
         assert self.step >= self.overlap * 2, "step must be greater than overlap*2"
 
     def update(self, current: int):
-        # current = int(current)
+        self.current = int(current)
         self.start = max(self.end - self.overlap, 0)
-        self.end = min(self.start + self.step, current)
-        return self.start, self.end, current
+        self.end = min(self.start + self.step, self.current)
+        return self.start, self.end, self.current
+
+    def head(self, n: int = 5) -> slice:
+        """前n条"""
+        return slice(0, min(n, self.current))
+
+    def tail(self, n: int = 5) -> slice:
+        """最后n条"""
+        return slice(max(self.current - n, 0), self.current)
+
+    def minute(self) -> slice:
+        """tick转分钟时需要全部数据，所以增量切片"""
+        return slice(self.start, self.end)
+
+    def day(self) -> slice:
+        """tick转日线时只要最后一段的数据。因为数据中已经包含了OHLCV"""
+        return self.tail(self.overlap)

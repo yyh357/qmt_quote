@@ -17,16 +17,18 @@ D:\GitHub\qmt_quote
 """
 import time
 
+import polars as pl
 from loguru import logger
 
 from config import FILE_INDEX, TICK_INDEX, TOTAL_INDEX, OVERLAP_INDEX  # noqa
 from config import FILE_STOCK, TICK_STOCK, TOTAL_STOCK, OVERLAP_STOCK  # noqa
-from utils import arr_to_pl, get_mmap, filter__0930_1130__1300_1500, tick_to_minute, tick_to_day, RangeUpdater, concat_unique
+from utils import arr_to_pl, get_mmap, filter__0930_1130__1300_1500, tick_to_minute, tick_to_day, SliceUpdater, concat_unique
 
 stk1, stk2 = get_mmap(FILE_STOCK, TICK_STOCK, TOTAL_STOCK, readonly=True)
 idx1, idx2 = get_mmap(FILE_INDEX, TICK_INDEX, TOTAL_INDEX, readonly=True)
 
-ru = RangeUpdater(overlap=OVERLAP_STOCK, step=OVERLAP_STOCK * 10)
+# 约定df1存1分钟数据，df2存日线数据
+slice_stk = SliceUpdater(overlap=OVERLAP_STOCK, step=OVERLAP_STOCK * 10)
 
 if __name__ == "__main__":
     print("注意：每天开盘前需要清理bin文件和idx文件")
@@ -36,13 +38,17 @@ if __name__ == "__main__":
         if x == "q":
             break
 
+        # 更新当前位置
+        start, end, current = slice_stk.update(int(stk2[0]))
+        print(start, end, current)
+
         print("最新5条原始数据==================")
-        df = stk1[:stk2[0]][-5:]
+        df = stk1[slice_stk.tail()]
         print(df)
 
-        print("转日线数据==================数据量少可整体转换")
+        print("转日线数据==================只取最后一段数据")
         t1 = time.perf_counter()
-        df = arr_to_pl(idx1[:idx2[0]])
+        df = arr_to_pl(stk1[slice_stk.day()])
         df = tick_to_day(df)
         t2 = time.perf_counter()
         logger.info(f"耗时{t2 - t1:.2f}秒")
@@ -50,12 +56,19 @@ if __name__ == "__main__":
 
         print("转分钟数据==================数据量大分批转换")
         t1 = time.perf_counter()
-        start, end, current = ru.update(int(stk2[0]))
-        print(start, end, current)
-        df = arr_to_pl(stk1[ru.start:ru.end])
+        df = arr_to_pl(stk1[slice_stk.minute()])
+
+        # TODO 是在TICK数据过滤还是在K线时过滤呢？
+        df = df.with_columns(_time_=pl.col("time").dt.time())
         df = filter__0930_1130__1300_1500(df, col="_time_")
+
         df = tick_to_minute(df, period="1m")
-        ru.df = concat_unique(ru.df, df)
+
+        # TODO 是在TICK数据过滤还是在K线时过滤呢？
+        # df = df.with_columns(_time_=pl.col("time").dt.time())
+        # df = filter__0930_1130__1300_1500(df, col="_time_")
+
+        slice_stk.df1 = concat_unique(slice_stk.df1, df)
         t2 = time.perf_counter()
         logger.info(f"耗时{t2 - t1:.2f}秒")
         print(df)
