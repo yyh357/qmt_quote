@@ -20,19 +20,24 @@ import time
 import polars as pl
 from loguru import logger
 
-from config import FILE_INDEX, TICK_INDEX, TOTAL_INDEX, OVERLAP_INDEX  # noqa
-from config import FILE_STOCK, TICK_STOCK, TOTAL_STOCK, OVERLAP_STOCK  # noqa
-from utils import arr_to_pl, get_mmap, filter__0930_1130__1300_1500, tick_to_minute, tick_to_day, SliceUpdater, concat_unique
+from config import FILE_INDEX, TICK_INDEX, TOTAL_INDEX, MINUTE1_INDEX, HISTORY_STOCK_1m  # noqa
+from config import FILE_STOCK, TICK_STOCK, TOTAL_STOCK, MINUTE1_STOCK, HISTORY_STOCK_1d  # noqa
+from qmt_quote.memory_map import get_mmap, SliceUpdater
+from qmt_quote.utils_qmt import arr_to_pl, ticks_to_minute, adjust_ticks_time, concat_intraday, filter_suspend, ticks_to_day, calc_factor, concat_interday
 
 stk1, stk2 = get_mmap(FILE_STOCK, TICK_STOCK, TOTAL_STOCK, readonly=True)
 idx1, idx2 = get_mmap(FILE_INDEX, TICK_INDEX, TOTAL_INDEX, readonly=True)
 
 # 约定df1存1分钟数据，df2存日线数据
-slice_stk = SliceUpdater(overlap=OVERLAP_STOCK, step=OVERLAP_STOCK * 10)
+slice_stk = SliceUpdater(min1=MINUTE1_STOCK, overlap_ratio=3, step_ratio=30)
+# 加载历史数据
+
+# 历史分钟线，只设置一次，当天不再更新
+slice_stk.df1 = pl.read_parquet(HISTORY_STOCK_1m).filter(pl.col('suspendFlag') == 0)
+# 历史日线，只设置一次，当天不再更新
+slice_stk.df2 = pl.read_parquet(HISTORY_STOCK_1d).filter(pl.col('suspendFlag') == 0)
 
 if __name__ == "__main__":
-    print("注意：每天开盘前需要清理bin文件和idx文件")
-
     while True:
         x = input("输入`q`退出；输入其它键打印最新数据\n")
         if x == "q":
@@ -45,30 +50,25 @@ if __name__ == "__main__":
         print("最新5条原始数据==================")
         df = stk1[slice_stk.tail()]
         print(df)
-
-        print("转日线数据==================只取最后一段数据")
+        #
+        print("转日线数据==================只取最后一段合成日线")
         t1 = time.perf_counter()
         df = arr_to_pl(stk1[slice_stk.day()])
-        df = tick_to_day(df)
+        df = ticks_to_day(df)
+        df = filter_suspend(df)
+        slice_stk.df4 = concat_interday(slice_stk.df2, df)
+        slice_stk.df4 = calc_factor(slice_stk.df4)
         t2 = time.perf_counter()
-        logger.info(f"耗时{t2 - t1:.2f}秒")
-        print(df)
+        logger.info(f"日线耗时{t2 - t1:.2f}秒")
+        # print(df)
 
         print("转分钟数据==================数据量大分批转换")
         t1 = time.perf_counter()
         df = arr_to_pl(stk1[slice_stk.minute()])
-
-        # TODO 是在TICK数据过滤还是在K线时过滤呢？
-        df = df.with_columns(_time_=pl.col("time").dt.time())
-        df = filter__0930_1130__1300_1500(df, col="_time_")
-
-        df = tick_to_minute(df, period="1m")
-
-        # TODO 是在TICK数据过滤还是在K线时过滤呢？
-        # df = df.with_columns(_time_=pl.col("time").dt.time())
-        # df = filter__0930_1130__1300_1500(df, col="_time_")
-
-        slice_stk.df1 = concat_unique(slice_stk.df1, df)
+        df = adjust_ticks_time(df, col=pl.col('time'))
+        df = ticks_to_minute(df, period="1m")
+        slice_stk.df3 = concat_intraday(slice_stk.df3, df)
+        slice_stk.df5 = concat_interday(slice_stk.df1, slice_stk.df3)
         t2 = time.perf_counter()
-        logger.info(f"耗时{t2 - t1:.2f}秒")
-        print(df)
+        logger.info(f"分钟耗时{t2 - t1:.2f}秒")
+        # print(df)

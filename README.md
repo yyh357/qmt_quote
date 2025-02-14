@@ -1,13 +1,8 @@
 # qmt_quote
 
-迅投MiniQMT全推行情记录
+迅投miniQMT全推行情记录
 
-将底层的tick全推行情通过回调转发记录到内存映射文件，用户可以实时读取并转换成K线数据
-
-注意：
-
-1. QMT可以手动下载Tick数据
-2. 再通过`get_local_data([], ['000001.SZ'], period='tick', data_dir=r'D:\e海方舟-量化交易版\datadir')`读取
+将底层的tick全推行情通过回调转发记录到内存映射文件，用户可以实时读取并转换成K线数据，变相实现K线全推行情。
 
 ## 基础用法
 
@@ -16,17 +11,19 @@
 3. 在虚拟环境中安装`xtquant`
 4. 在虚拟环境中`pip install -r requirements.txt`
 5. 修改`config.py`中的配置。如：
+    - TICK_STOCK: 股票数据格式。一般不需要修改
+    - MINUTE1_STOCK: 股票1分钟收到的总TICK数量。一般要比实际的大一些，否则溢出报错
     - TOTAL_STOCK: 股票的总记录条数，**一定要预留足够的空间**，否则溢出报错
     - FILE_INDEX: 指数数据文件路径。会维护2个文件。一个存数据，一个记录最新位置
-    - TICK_STOCK: 股票数据格式。一般不需要修改
-    - OVERLAP_STOCK: 股票3分钟收到的总TICK数量,合并1分钟数据时的重叠区
-6. 运行`python subscribe.py`, 转存全推行情。需要在开盘前运行，否则错失数据
+    - HISTORY_STOCK_1d: 历史数据保存位置。用于盘前准备历史数据
+6. 运行`python download.py`, 下载历史数据。一般在交易日收盘后16点以后运行
+7. 运行`python subscribe.py`, 转存全推行情。需要在开盘前运行，否则错失数据
+8. 运行`python archive.py`, 收盘后归档。需要在收盘后运行
 
 ## 进阶用法
 
 1. 运行`query.py`，可实时查看`K线数据`和`tick数据`。这也是增量取数据的方式。可在策略中使用
 2. 每次切换环境、运行脚本比较麻烦，可以直接双击运行`run.bat`
-3. `archive.py`收盘后归档
 
 ## 注意
 

@@ -3,7 +3,7 @@ import string
 
 from config import FILE_INDEX, TICK_INDEX, TOTAL_INDEX, OVERLAP_INDEX  # noqa
 from config import FILE_STOCK, TICK_STOCK, TOTAL_STOCK, OVERLAP_STOCK  # noqa
-from utils import mmap_truncate
+from qmt_quote.memory_map import mmap_truncate
 
 
 def generate_code(length=4):
