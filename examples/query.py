@@ -23,7 +23,8 @@ from loguru import logger
 from config import FILE_INDEX, TICK_INDEX, TOTAL_INDEX, MINUTE1_INDEX, HISTORY_STOCK_1m  # noqa
 from config import FILE_STOCK, TICK_STOCK, TOTAL_STOCK, MINUTE1_STOCK, HISTORY_STOCK_1d  # noqa
 from qmt_quote.memory_map import get_mmap, SliceUpdater
-from qmt_quote.utils_qmt import arr_to_pl, ticks_to_minute, adjust_ticks_time, concat_intraday, filter_suspend, ticks_to_day, calc_factor, concat_interday
+from qmt_quote.utils import arr_to_pl, concat_interday, calc_factor, concat_intraday
+from qmt_quote.utils_qmt import ticks_to_day, filter_suspend, adjust_ticks_time_astock, ticks_to_minute
 
 stk1, stk2 = get_mmap(FILE_STOCK, TICK_STOCK, TOTAL_STOCK, readonly=True)
 idx1, idx2 = get_mmap(FILE_INDEX, TICK_INDEX, TOTAL_INDEX, readonly=True)
@@ -33,9 +34,23 @@ slice_stk = SliceUpdater(min1=MINUTE1_STOCK, overlap_ratio=3, step_ratio=30)
 # 加载历史数据
 
 # 历史分钟线，只设置一次，当天不再更新
-slice_stk.df1 = pl.read_parquet(HISTORY_STOCK_1m).filter(pl.col('suspendFlag') == 0)
+slice_stk.df1 = (
+    pl.read_parquet(HISTORY_STOCK_1m)
+    .filter(pl.col('suspendFlag') == 0)
+    .with_columns(
+        pl.col('open', 'high', 'low', 'close', 'preClose').cast(pl.Float32),
+        pl.col('volume').cast(pl.UInt64),
+    )
+)
 # 历史日线，只设置一次，当天不再更新
-slice_stk.df2 = pl.read_parquet(HISTORY_STOCK_1d).filter(pl.col('suspendFlag') == 0)
+slice_stk.df2 = (
+    pl.read_parquet(HISTORY_STOCK_1d)
+    .filter(pl.col('suspendFlag') == 0)
+    .with_columns(
+        pl.col('open', 'high', 'low', 'close', 'preClose').cast(pl.Float32),
+        pl.col('volume').cast(pl.UInt64),
+    )
+)
 
 if __name__ == "__main__":
     while True:
@@ -57,7 +72,7 @@ if __name__ == "__main__":
         df = ticks_to_day(df)
         df = filter_suspend(df)
         slice_stk.df4 = concat_interday(slice_stk.df2, df)
-        slice_stk.df4 = calc_factor(slice_stk.df4)
+        slice_stk.df4 = calc_factor(slice_stk.df4, by1='code', by2='time', close='close', pre_close='preClose')
         t2 = time.perf_counter()
         logger.info(f"日线耗时{t2 - t1:.2f}秒")
         # print(df)
@@ -65,9 +80,9 @@ if __name__ == "__main__":
         print("转分钟数据==================数据量大分批转换")
         t1 = time.perf_counter()
         df = arr_to_pl(stk1[slice_stk.minute()])
-        df = adjust_ticks_time(df, col=pl.col('time'))
+        df = adjust_ticks_time_astock(df, col=pl.col('time'))
         df = ticks_to_minute(df, period="1m")
-        slice_stk.df3 = concat_intraday(slice_stk.df3, df)
+        slice_stk.df3 = concat_intraday(slice_stk.df3, df, by1='code', by2='time', by3='duration')
         slice_stk.df5 = concat_interday(slice_stk.df1, slice_stk.df3)
         t2 = time.perf_counter()
         logger.info(f"分钟耗时{t2 - t1:.2f}秒")

@@ -1,3 +1,16 @@
+"""
+内存映射文件
+1. 注意保持一写多读，防止数据混乱
+
+设计思路
+1. 两个文件。一个是数据文件bin，一个是索引文件idx
+2. 两个文件都使用`np.memmap`进行管理
+3. bin文件按行存储，每行数据的长度是固定的
+4. idx文件存储索引，第一行存储数据的行数，第二行存储每行数据的长度
+5. 每次更新数据时，先更新数据文件，然后更新索引文件
+6. 每次读取数据时，先读取索引文件，然后读取数据文件
+
+"""
 import os
 from pathlib import Path
 from typing import Tuple
@@ -188,7 +201,8 @@ class SliceUpdater:
         assert overlap_ratio >= 2.5, "overlap_ratio must be greater than 2.5"
         assert step_ratio >= overlap_ratio * 2, "step_ratio must be greater than overlap_ratio*2"
 
-    def update(self, current: int):
+    def update(self, current: int) -> Tuple[int, int, int]:
+        """更新最新位置，和切片开始结束位置"""
         self.current = int(current)
         self.start = max(self.end - self.overlap, 0)
         self.end = min(self.start + self.step, self.current)

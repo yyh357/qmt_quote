@@ -1,11 +1,58 @@
-from typing import Dict
+"""
+与交易平台无关的工具函数
 
+"""
+from typing import Dict, Any
+
+import numpy as np
 import pandas as pd
 import polars as pl
 
 
-def from_dict_dataframe(datas: Dict[str, pd.DataFrame]) -> pl.DataFrame:
-    """ 字典转DataFrame
+def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
+                       now: pd.Timestamp, index_name: str = 'code',
+                       level: int = 0, depths=["askPrice", "bidPrice", "askVol", "bidVol"],
+                       ) -> pd.DataFrame:
+    """嵌套字典 转 DataFrame
+
+    在全推行情中，接收到的嵌套字典转成DataFrame
+
+    Parameters
+    ----------
+    datas : dict
+        字典数据
+    now : pd.Timestamp
+        当前时间
+    index_name
+        索引名，资产名
+    level : int
+        行情深度
+    depths
+        深度行情列名
+
+
+    Returns
+    -------
+    pd.DataFrame
+
+    """
+    df = pd.DataFrame.from_dict(datas, orient="index")
+    df["now"] = now
+
+    # 行情深度
+    for i in range(level):
+        j = i + 1
+        new_columns = [f'{c}_{j}' for c in depths]
+        df[new_columns] = df[depths].map(lambda x: x[i])
+
+    # 索引股票代码，之后要用
+    df.index.name = index_name
+    return df
+
+
+def concat_dataframes_from_dict(datas: Dict[str, pd.DataFrame]) -> pl.DataFrame:
+    """ 拼接DataFrame
+
     Parameters
     ----------
     datas : dict
@@ -19,3 +66,67 @@ def cast_datetime(df: pl.DataFrame, col: pl.Expr = pl.col('time')) -> pl.DataFra
     """ 转换时间列
     """
     return df.with_columns(col.cast(pl.Datetime(time_unit="ms", time_zone="Asia/Shanghai")))
+
+
+def arr_to_pl(arr: np.ndarray, col: str = 'time') -> pl.DataFrame:
+    """numpy数组转polars DataFrame"""
+    return cast_datetime(pl.from_numpy(arr), pl.col(col))
+
+
+def concat_intraday(df1: pl.DataFrame, df2: pl.DataFrame, by1: str = 'code', by2: str = 'time', by3: str = 'duration') -> pl.DataFrame:
+    """日内分钟合并，需要排除重复
+
+    数据是分批到来的，所以合成K线也是分批的，但很有可能出现不完整的数据，用duration来排除重复数据,只选最大的
+
+    1. 前一DataFrame后期数据不完整
+    2. 后一DataFrame前期数据不完整
+    3. 前后DataFrame有重复数据
+
+    """
+    if df1 is None:
+        return df2
+
+    df = pl.concat([df1, df2], how='vertical')
+    return df.sort(by1, by2, by3).unique(subset=[by1, by2], keep='last', maintain_order=True)
+
+
+def concat_interday(df1: pl.DataFrame, df2: pl.DataFrame) -> pl.DataFrame:
+    """日间线合并，不会重复，但格式会有偏差"""
+    if df1 is None:
+        return df2
+    cols = list(set(df1.columns) & set(df2.columns))
+    # print(df1.select(*cols).schema)
+    # print(df2.select(*cols).schema)
+    return pl.concat([df1.select(*cols), df2.select(*cols)], how="vertical")
+
+
+def calc_factor(df: pl.DataFrame,
+                by1: str = 'code', by2: str = 'time',
+                close: str = 'code', pre_close: str = 'preClose') -> pl.DataFrame:
+    """计算复权因子，使用交易所发布的昨收盘价计算
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        数据
+    by1 : str
+        分组字段
+    by2 : str
+        排序字段
+    close : str
+        收盘价字段
+    pre_close : str
+        昨收盘价字段
+
+    Notes
+    -----
+    不关心是否真发生了除权除息过程，只要知道前收盘价和收盘价不等就表示发生了除权除息
+
+    """
+    df = (
+        df
+        .sort(by1, by2)
+        .with_columns(factor1=(pl.col(close).shift(1) / pl.col(pre_close)).fill_null(1).round(8).over(by1, order_by=by2))
+        .with_columns(factor2=(pl.col('factor1').cum_prod()).over(by1, order_by=by2))
+    )
+    return df

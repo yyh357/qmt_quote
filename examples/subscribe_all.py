@@ -8,7 +8,7 @@ from xtquant import xtdata
 from config import FILE_INDEX, TICK_INDEX, TOTAL_INDEX  # noqa
 from config import FILE_STOCK, TICK_STOCK, TOTAL_STOCK  # noqa
 from qmt_quote.memory_map import get_mmap, update_array
-from qmt_quote.utils_qmt import ticks_to_dataframe
+from qmt_quote.utils import ticks_to_dataframe
 
 # 开盘前需要先更新板块数据，因为会有新股上市
 xtdata.download_sector_data()
@@ -39,13 +39,13 @@ def func(datas):
     # TODO 这里的set可以替换成日线选股票池，减少股票数后处理速度更快
     d = {k: v for k, v in datas.items() if k in G.沪深A股}
     if len(d) > 0:
-        df = ticks_to_dataframe(d, level=5, now=now)
+        df = ticks_to_dataframe(d, now=now, index_name='code', level=5, depths=["askPrice", "bidPrice", "askVol", "bidVol"])
         start, step, end = update_array(stk1, stk2, df[columns_stk])
         pbar_stk.update(step)
     # =======================
     d = {k: v for k, v in datas.items() if k in G.沪深指数}
     if len(d) > 0:
-        df = ticks_to_dataframe(d, level=0, now=now)
+        df = ticks_to_dataframe(d, now=now, index_name='code', level=0)
         start, step, end = update_array(idx1, idx2, df[columns_idx])
         pbar_idx.update(step)
 

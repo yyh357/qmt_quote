@@ -1,5 +1,8 @@
 import numpy as np
 
+# TODO 历史数据目录
+DATA_DIR = r"D:\e海方舟-量化交易版\datadir"
+
 # TODO 1分钟数据量。股票3秒更新一次
 MINUTE1_STOCK = int(60 / 3 * 6000)  # 5000多只股票
 MINUTE1_INDEX = int(60 / 3 * 1000)  # 500多只指数
@@ -32,8 +35,8 @@ TICK_STOCK = np.dtype([
     ("amount", np.float64),
     ("volume", np.uint64),
     # ("pvolume", np.uint64),  # pvolume不维护，因为askVol/bidVol推送过来的都是手,计算vwap时要留意
-    ("stockStatus", np.uint8),  # 废弃了吗？
-    ("openInt", np.uint8),
+    # ("stockStatus", np.uint8),  # 废弃了吗？
+    # ("openInt", np.uint8),
     # ("transactionNum", np.uint32),
     # ("lastSettlementPrice", np.float32),
     # ("settlementPrice", np.float32),

@@ -16,9 +16,10 @@
     - TOTAL_STOCK: 股票的总记录条数，**一定要预留足够的空间**，否则溢出报错
     - FILE_INDEX: 指数数据文件路径。会维护2个文件。一个存数据，一个记录最新位置
     - HISTORY_STOCK_1d: 历史数据保存位置。用于盘前准备历史数据
-6. 运行`python download.py`, 下载历史数据。一般在交易日收盘后16点以后运行
-7. 运行`python subscribe.py`, 转存全推行情。需要在开盘前运行，否则错失数据
-8. 运行`python archive.py`, 收盘后归档。需要在收盘后运行
+6. 运行`QMT普通版`, 手动下载历史数据。一般在交易日收盘后16点以后运行
+7. 运行`prepare_history.py`, 准备历史数据。会将历史数据转存到`HISTORY_STOCK_1d`等位置
+8. 运行`python subscribe_all.py`, 转存全推行情。需要在开盘前运行，否则错失数据
+9. 运行`archive.py`, 收盘后归档。需要在收盘后运行
 
 ## 进阶用法
 

@@ -1,52 +1,16 @@
+"""
+依赖于QMT的工具函数
+"""
 import time
-from typing import Dict, Any
 
-import numpy as np
-import pandas as pd
 import polars as pl
 from tqdm import tqdm
 from xtquant import xtdata
 
-from qmt_quote.utils import cast_datetime, from_dict_dataframe
+from qmt_quote.utils import cast_datetime, concat_dataframes_from_dict
 
 
-def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]], level: int, now: pd.Timestamp) -> pd.DataFrame:
-    """ 字典转DataFrame
-
-    Parameters
-    ----------
-    datas : dict
-        字典数据
-    level : int
-        行情深度
-    now : pd.Timestamp
-        当前时间
-    Returns
-    -------
-    pd.DataFrame
-
-    """
-    df = pd.DataFrame.from_dict(datas, orient="index")
-    df["now"] = now
-
-    # 行情深度
-    for i in range(level):
-        j = i + 1
-        df[[f"askPrice_{j}", f"bidPrice_{j}", f"askVol_{j}", f"bidVol_{j}"]] = df[
-            ["askPrice", "bidPrice", "askVol", "bidVol"]
-        ].map(lambda x: x[i])
-
-    # 索引股票代码，之后要用
-    df.index.name = "code"
-    return df
-
-
-def arr_to_pl(arr: np.ndarray) -> pl.DataFrame:
-    """numpy数组转polars DataFrame"""
-    return cast_datetime(pl.from_numpy(arr), pl.col("time"))
-
-
-def adjust_ticks_time(df: pl.DataFrame, col: pl.Expr = pl.col('time')) -> pl.DataFrame:
+def adjust_ticks_time_astock(df: pl.DataFrame, col: pl.Expr = pl.col('time')) -> pl.DataFrame:
     """调整时间边缘，方便生成与qmt历史数据一致整齐的1分钟K线
 
     标签打在右边界上
@@ -159,45 +123,11 @@ def filter_suspend(df: pl.DataFrame) -> pl.DataFrame:
     return df.filter(pl.col('volume') > 0, pl.col('high') > 0)
 
 
-def concat_intraday(df1: pl.DataFrame, df2: pl.DataFrame) -> pl.DataFrame:
-    """日内分钟合并，需要排除重复
+def download_history_data2_wrap(desc, stock_list, period, start_time, end_time):
+    """下载历史数据
 
-    数据是分批到来的，所以合成K线也是分批的，但很有可能出现不完整的数据
-
-    1. 前一DataFrame后期数据不完整
-    2. 后一DataFrame前期数据不完整
-    3. 前后DataFrame有重复数据
-
+    日线下得动，分钟线下不动？还是建议手动下载
     """
-    if df1 is None:
-        return df2
-
-    df = pl.concat([df1, df2], how='vertical')
-    return df.sort("code", "time", "duration").unique(subset=["code", "time"], keep='last', maintain_order=True)
-
-
-def concat_interday(df1: pl.DataFrame, df2: pl.DataFrame) -> pl.DataFrame:
-    """日间线合并，不会重复，但格式会有偏差"""
-    if df1 is None:
-        return df2
-
-    return pl.concat([df1, df2], how="align")
-
-
-def calc_factor(df: pl.DataFrame) -> pl.DataFrame:
-    """计算复权因子，使用交易所发布的昨收盘价计算
-    """
-    df = (
-        df.filter(pl.col('suspendFlag') == 0)
-        .sort("code", "time")
-        .with_columns(factor1=(pl.col('close').shift(1) / pl.col('preClose')).fill_null(1).round(8).over('code', order_by='time'))
-        .with_columns(factor2=(pl.col('factor1').cum_prod()).over('code', order_by='time'))
-    )
-    return df
-
-
-def download_history_data2_task(desc, stock_list, period, start_time, end_time):
-    """下载历史数据"""
     pbar = tqdm(total=len(stock_list), desc=desc)
     xtdata.download_history_data2(stock_list, period=period, start_time=start_time, end_time=end_time, incrementally=True, callback=lambda x: pbar.update(1))
     while pbar.n < pbar.total:
@@ -205,7 +135,14 @@ def download_history_data2_task(desc, stock_list, period, start_time, end_time):
     pbar.close()
 
 
-def get_market_data_ex_task(stock_list, period, start_time, end_time):
-    datas = xtdata.get_market_data_ex([], stock_list, period=period, start_time=start_time, end_time=end_time)
-    df = from_dict_dataframe(datas)
+def get_local_data_wrap(stock_list, period: str, start_time: str, end_time: str, data_dir: str) -> pl.DataFrame:
+    """获取本地历史数据
+
+    Notes
+    -----
+    反而通过QMT客户端手动下载数据，比通过API下载数据更靠谱
+
+    """
+    datas = xtdata.get_local_data([], stock_list, period, start_time, end_time, dividend_type='none', data_dir=data_dir)
+    df = concat_dataframes_from_dict(datas)
     return cast_datetime(df, pl.col("time"))
