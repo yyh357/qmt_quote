@@ -52,10 +52,29 @@ slice_stk.df2 = (
     )
 )
 
+
+def process_day():
+    df = arr_to_pl(stk1[slice_stk.day()])
+    df = ticks_to_day(df)
+    df = filter_suspend(df)
+    slice_stk.df4 = concat_interday(slice_stk.df2, df)
+    slice_stk.df4 = calc_factor(slice_stk.df4, by1='code', by2='time', close='close', pre_close='preClose')
+    return slice_stk.df4
+
+
+def process_min():
+    df = arr_to_pl(stk1[slice_stk.minute()])
+    df = adjust_ticks_time_astock(df, col=pl.col('time'))
+    df = ticks_to_minute(df, period="1m")
+    slice_stk.df3 = concat_intraday(slice_stk.df3, df, by1='code', by2='time', by3='duration')
+    slice_stk.df5 = concat_interday(slice_stk.df1, slice_stk.df3)
+    return slice_stk.df5
+
+
 if __name__ == "__main__":
     while True:
-        x = input("输入`q`退出；输入其它键打印最新数据\n")
-        if x == "q":
+        x = input("输入`:q`退出；输入其它键打印最新数据\n")
+        if x == ":q":
             break
 
         # 更新当前位置
@@ -68,22 +87,14 @@ if __name__ == "__main__":
         #
         print("转日线数据==================只取最后一段合成日线")
         t1 = time.perf_counter()
-        df = arr_to_pl(stk1[slice_stk.day()])
-        df = ticks_to_day(df)
-        df = filter_suspend(df)
-        slice_stk.df4 = concat_interday(slice_stk.df2, df)
-        slice_stk.df4 = calc_factor(slice_stk.df4, by1='code', by2='time', close='close', pre_close='preClose')
+        df = process_day()
         t2 = time.perf_counter()
         logger.info(f"日线耗时{t2 - t1:.2f}秒")
-        # print(df)
+        print(df)
 
         print("转分钟数据==================数据量大分批转换")
         t1 = time.perf_counter()
-        df = arr_to_pl(stk1[slice_stk.minute()])
-        df = adjust_ticks_time_astock(df, col=pl.col('time'))
-        df = ticks_to_minute(df, period="1m")
-        slice_stk.df3 = concat_intraday(slice_stk.df3, df, by1='code', by2='time', by3='duration')
-        slice_stk.df5 = concat_interday(slice_stk.df1, slice_stk.df3)
+        df = process_min()
         t2 = time.perf_counter()
         logger.info(f"分钟耗时{t2 - t1:.2f}秒")
-        # print(df)
+        print(df)

@@ -37,9 +37,9 @@ def save_1m(start_time, end_time):
 
 
 if __name__ == "__main__":
-    print('请先在QMT普通版中手动下数据')
-    print('然后在QMT极速版中运行本脚本')
-    print('请在合并后的数据中查看范围是否合适，以防上一步的数据下载不全')
+    print('1. 请先在QMT普通版中手动下数据')
+    print('2. 然后在QMT极速版中运行本脚本')
+    print('3. 请在合并后的数据中查看范围是否合适，以防上一步的数据下载不全')
     # 下午3点半后才能下载当天的数据
     end_time = datetime.now() - timedelta(hours=15, minutes=30)
     end_time = end_time.strftime("%Y%m%d")

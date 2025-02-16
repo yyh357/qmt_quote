@@ -3,6 +3,7 @@
 """
 import time
 
+import pandas as pd
 import polars as pl
 from tqdm import tqdm
 from xtquant import xtdata
@@ -146,3 +147,11 @@ def get_local_data_wrap(stock_list, period: str, start_time: str, end_time: str,
     datas = xtdata.get_local_data([], stock_list, period, start_time, end_time, dividend_type='none', data_dir=data_dir)
     df = concat_dataframes_from_dict(datas)
     return cast_datetime(df, pl.col("time"))
+
+
+def get_instrument_detail_wrap(stock_list) -> pl.DataFrame:
+    """批量获取股票详情，内有涨跌停字段"""
+    datas = {x: xtdata.get_instrument_detail(x) for x in stock_list}
+    df = pd.DataFrame.from_dict(datas, orient='index')
+    df.index.name = 'code'
+    return pl.from_pandas(df, include_index=True)

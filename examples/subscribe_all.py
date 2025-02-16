@@ -53,7 +53,7 @@ def func(datas):
 if __name__ == "__main__":
     print("注意：每天开盘前需要清理bin文件和idx文件")
     print()
-    print("**输入`q`退出**")
+    print("**输入`:q`退出**")
     print()
 
     bar_format = "{desc}: {percentage:5.2f}%|{bar}{r_bar}"
@@ -64,5 +64,5 @@ if __name__ == "__main__":
 
     while True:
         x = input()
-        if x == "q":
+        if x == ":q":
             break
