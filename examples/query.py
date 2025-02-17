@@ -16,12 +16,14 @@ D:\GitHub\qmt_quote
 
 """
 import time
+from datetime import datetime
 
 import polars as pl
 from loguru import logger
 
 from config import FILE_INDEX, TICK_INDEX, TOTAL_INDEX, MINUTE1_INDEX, HISTORY_STOCK_1m  # noqa
 from config import FILE_STOCK, TICK_STOCK, TOTAL_STOCK, MINUTE1_STOCK, HISTORY_STOCK_1d  # noqa
+from factor_calc import main  # 因子计算模块
 from qmt_quote.memory_map import get_mmap, SliceUpdater
 from qmt_quote.utils import arr_to_pl, concat_interday, calc_factor, concat_intraday
 from qmt_quote.utils_qmt import ticks_to_day, filter_suspend, adjust_ticks_time_astock, ticks_to_minute
@@ -68,33 +70,48 @@ def process_min():
     df = ticks_to_minute(df, period="1m")
     slice_stk.df3 = concat_intraday(slice_stk.df3, df, by1='code', by2='time', by3='duration')
     slice_stk.df5 = concat_interday(slice_stk.df1, slice_stk.df3)
+    slice_stk.df5 = calc_factor(slice_stk.df5, by1='code', by2='time', close='close', pre_close='preClose')
     return slice_stk.df5
 
 
 if __name__ == "__main__":
+    last_time = -1
     while True:
-        x = input("输入`:q`退出；输入其它键打印最新数据\n")
-        if x == ":q":
-            break
+        # TODO 屏蔽输入，可以用定时触发
+        if False:
+            x = input("输入`:q`退出；输入其它键打印最新数据\n")
+            if x == ":q":
+                break
+
+        # TODO 替换成时间判断语句，就可以每分钟定时触发了
+        if True:
+            curr_time = datetime.now().minute
+            if curr_time == last_time:
+                time.sleep(1)
+                continue
+            last_time = curr_time
+            logger.info(curr_time)
 
         # 更新当前位置
         start, end, current = slice_stk.update(int(stk2[0]))
-        print(start, end, current)
+        logger.info("{}, {}, {}", start, end, current)
 
-        print("最新5条原始数据==================")
+        logger.info("最新5条原始数据==================")
         df = stk1[slice_stk.tail()]
         print(df)
         #
-        print("转日线数据==================只取最后一段合成日线")
+        logger.info("转日线数据==================只取最后一段合成日线")
         t1 = time.perf_counter()
         df = process_day()
+        df = main(df)
         t2 = time.perf_counter()
         logger.info(f"日线耗时{t2 - t1:.2f}秒")
-        print(df)
+        print(df.tail(2))
 
-        print("转分钟数据==================数据量大分批转换")
+        logger.info("转分钟数据==================数据量大分批转换")
         t1 = time.perf_counter()
         df = process_min()
+        df = main(df)
         t2 = time.perf_counter()
         logger.info(f"分钟耗时{t2 - t1:.2f}秒")
-        print(df)
+        print(df.tail(2))

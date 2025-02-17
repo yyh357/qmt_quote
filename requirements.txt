@@ -3,3 +3,5 @@ pandas
 polars
 loguru
 tqdm
+expr_codegen
+polars_ta
