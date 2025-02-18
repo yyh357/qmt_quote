@@ -94,13 +94,19 @@ def concat_intraday(df1: pl.DataFrame, df2: pl.DataFrame, by1: str = 'code', by2
     return df.sort(by1, by2, by3).unique(subset=[by1, by2], keep='last', maintain_order=True)
 
 
+def get_common_elements(list1, list2):
+    """获取两个列表的共同元素，保持原始顺序"""
+    # 使用集合找到共同元素
+    common_set = set(list1) & set(list2)
+    # 保持原始顺序
+    return [x for x in list1 if x in common_set]
+
+
 def concat_interday(df1: pl.DataFrame, df2: pl.DataFrame) -> pl.DataFrame:
     """日间线合并，不会重复，但格式会有偏差"""
     if df1 is None:
         return df2
-    cols = list(set(df1.columns) & set(df2.columns))
-    # print(df1.select(*cols).schema)
-    # print(df2.select(*cols).schema)
+    cols = get_common_elements(df2.columns, df1.columns)
     return pl.concat([df1.select(*cols), df2.select(*cols)], how="vertical")
 
 
