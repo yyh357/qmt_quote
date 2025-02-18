@@ -8,7 +8,7 @@ from xtquant import xtdata
 from config import FILE_INDEX, TICK_INDEX, TOTAL_INDEX  # noqa
 from config import FILE_STOCK, TICK_STOCK, TOTAL_STOCK  # noqa
 from qmt_quote.memory_map import get_mmap, update_array
-from qmt_quote.utils import ticks_to_dataframe
+from qmt_quote.utils import ticks_to_dataframe, generate_code, input_with_timeout
 
 # 开盘前需要先更新板块数据，因为会有新股上市
 xtdata.download_sector_data()
@@ -51,9 +51,17 @@ def func(datas):
 
 
 if __name__ == "__main__":
-    print("注意：每天开盘前需要清理bin文件和idx文件")
+    print(f"股票当前指针：{stk2[0]}")
+    print(f"指数当前指针：{idx2[0]}")
+    print('注意：仅在早上开盘前**重置文件指针**，用于覆盖昨天旧数据。盘中使用会导致今日已收数据被覆盖')
+    code1 = generate_code(4)
+    code2 = input_with_timeout(f"15秒內输入验证码重置文件指针({code1}/回车忽略)：", timeout=15)
+    if code2 == code1:
+        stk2[0] = 0
+        idx2[0] = 0
+        print("!!!重置文件指针成功!!!")
     print()
-    print("**输入`:q`退出**")
+    print("开始订阅行情，**输入`:q`退出**")
     print()
 
     bar_format = "{desc}: {percentage:5.2f}%|{bar}{r_bar}"

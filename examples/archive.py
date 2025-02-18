@@ -1,14 +1,7 @@
-import random
-import string
-
 from config import FILE_INDEX
 from config import FILE_STOCK
 from qmt_quote.memory_map import mmap_truncate
-
-
-def generate_code(length=4):
-    return ''.join(random.sample(string.digits, k=length))
-
+from qmt_quote.utils import generate_code
 
 if __name__ == "__main__":
     print("注意：一定要在收盘后不再接收行情才能归档文件，否者继续记录行情失败")

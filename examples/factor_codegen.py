@@ -12,7 +12,7 @@ from qmt_quote.utils import calc_factor
 def _code_block_1():
     CLOSE = close * factor2
     MA5 = ts_mean(CLOSE, 5)
-    MA10 = ts_mean(CLOSE, 10)
+    MA10 = cs_rank(ts_mean(CLOSE, 10))
 
 
 df = pl.read_parquet(HISTORY_STOCK_1d)
