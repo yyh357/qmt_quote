@@ -11,10 +11,11 @@ from typing import Dict, Any
 import numpy as np
 import pandas as pd
 import polars as pl
+from polars import Expr
 
 
 def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
-                       now: pd.Timestamp, index_name: str = 'code',
+                       now: pd.Timestamp, index_name: str = 'stock_code',
                        level: int = 0, depths=["askPrice", "bidPrice", "askVol", "bidVol"],
                        ) -> pd.DataFrame:
     """嵌套字典 转 DataFrame
@@ -63,7 +64,7 @@ def concat_dataframes_from_dict(datas: Dict[str, pd.DataFrame]) -> pl.DataFrame:
         字典数据
 
     """
-    return pl.concat([pl.from_dataframe(v).with_columns(code=pl.lit(k)) for k, v in datas.items()])
+    return pl.concat([pl.from_dataframe(v).with_columns(stock_code=pl.lit(k)) for k, v in datas.items()])
 
 
 def cast_datetime(df: pl.DataFrame, col: pl.Expr = pl.col('time')) -> pl.DataFrame:
@@ -72,12 +73,12 @@ def cast_datetime(df: pl.DataFrame, col: pl.Expr = pl.col('time')) -> pl.DataFra
     return df.with_columns(col.cast(pl.Datetime(time_unit="ms", time_zone="Asia/Shanghai")))
 
 
-def arr_to_pl(arr: np.ndarray, col: str = 'time') -> pl.DataFrame:
+def arr_to_pl(arr: np.ndarray, col: Expr = pl.col('time')) -> pl.DataFrame:
     """numpy数组转polars DataFrame"""
-    return cast_datetime(pl.from_numpy(arr), pl.col(col))
+    return cast_datetime(pl.from_numpy(arr), col)
 
 
-def concat_intraday(df1: pl.DataFrame, df2: pl.DataFrame, by1: str = 'code', by2: str = 'time', by3: str = 'duration') -> pl.DataFrame:
+def concat_intraday(df1: pl.DataFrame, df2: pl.DataFrame, by1: str = 'stock_code', by2: str = 'time', by3: str = 'duration') -> pl.DataFrame:
     """日内分钟合并，需要排除重复
 
     数据是分批到来的，所以合成K线也是分批的，但很有可能出现不完整的数据，用duration来排除重复数据,只选最大的
@@ -106,13 +107,15 @@ def concat_interday(df1: pl.DataFrame, df2: pl.DataFrame) -> pl.DataFrame:
     """日间线合并，不会重复，但格式会有偏差"""
     if df1 is None:
         return df2
-    cols = get_common_elements(df2.columns, df1.columns)
+    # print(df1.columns)
+    # print(df2.columns)
+    cols = get_common_elements(df1.columns, df2.columns)
     return pl.concat([df1.select(*cols), df2.select(*cols)], how="vertical")
 
 
 def calc_factor(df: pl.DataFrame,
-                by1: str = 'code', by2: str = 'time',
-                close: str = 'code', pre_close: str = 'preClose') -> pl.DataFrame:
+                by1: str = 'stock_code', by2: str = 'time',
+                close: str = 'close', pre_close: str = 'preClose') -> pl.DataFrame:
     """计算复权因子，使用交易所发布的昨收盘价计算
 
     Parameters

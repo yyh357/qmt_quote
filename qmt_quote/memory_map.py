@@ -180,6 +180,8 @@ class SliceUpdater:
 
         Parameters
         ----------
+        min1: int
+            1分钟数据量
         overlap_ratio : int
             重叠范围。 默认3分钟
         step_ratio : int, optional
@@ -193,33 +195,44 @@ class SliceUpdater:
         self.df4 = None  # 例如：历史日线+当天日线
         self.df5 = None  # 例如：历史1分钟+当天1分钟
 
+        # 无重叠取数据
         self.start = 0
         self.end = 0
-        self.current = 0
+
+        self.cursor = 0
+        self.min1 = min1
         self.overlap = int(min1 * overlap_ratio)
         self.step = int(min1 * step_ratio)
         assert overlap_ratio >= 2.5, "overlap_ratio must be greater than 2.5"
         assert step_ratio >= overlap_ratio * 2, "step_ratio must be greater than overlap_ratio*2"
 
-    def update(self, current: int) -> Tuple[int, int, int]:
+    def update(self, cursor: int) -> Tuple[int, int, int]:
         """更新最新位置，和切片开始结束位置"""
-        self.current = int(current)
-        self.start = max(self.end - self.overlap, 0)
-        self.end = min(self.start + self.step, self.current)
-        return self.start, self.end, self.current
+        self.cursor = int(cursor)
+        self.start = self.end
+        self.end = min(self.start + self.step, self.cursor)
+        return self.start, self.end, self.cursor
 
     def head(self, n: int = 5) -> slice:
         """前n条"""
-        return slice(0, min(n, self.current))
+        return slice(0, min(n, self.cursor))
 
     def tail(self, n: int = 5) -> slice:
         """最后n条"""
-        return slice(max(self.current - n, 0), self.current)
+        return slice(max(self.cursor - n, 0), self.cursor)
 
-    def minute(self) -> slice:
+    def for_minute(self) -> slice:
+        """tick转分钟时需要全部数据，所以增量切片"""
+        return slice(max(self.start - self.overlap, 0), self.end)
+
+    def for_all(self) -> slice:
+        """tick"""
+        return slice(0, self.cursor)
+
+    def for_next(self) -> slice:
         """tick转分钟时需要全部数据，所以增量切片"""
         return slice(self.start, self.end)
 
-    def day(self) -> slice:
+    def for_day(self) -> slice:
         """tick转日线时只要最后一段的数据。因为数据中已经包含了OHLCV"""
-        return self.tail(self.overlap)
+        return self.tail(self.min1)

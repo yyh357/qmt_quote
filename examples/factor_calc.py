@@ -23,14 +23,14 @@ from polars_ta.prefix.cdl import *  # noqa
 DataFrame = TypeVar("DataFrame", _pl_LazyFrame, _pl_DataFrame)
 # ===================================
 
-_ = ["close", "factor2", "CLOSE"]
-[close, factor2, CLOSE] = [pl.col(i) for i in _]
+_ = ["CLOSE", "factor2", "close"]
+[CLOSE, factor2, close] = [pl.col(i) for i in _]
 
-_ = ["_x_0", "MA5", "MA10"]
-[_x_0, MA5, MA10] = [pl.col(i) for i in _]
+_ = ["MA5", "MA10"]
+[MA5, MA10] = [pl.col(i) for i in _]
 
 _DATE_ = "time"
-_ASSET_ = "code"
+_ASSET_ = "stock_code"
 _NONE_ = None
 _TRUE_ = True
 _FALSE_ = False
@@ -51,19 +51,11 @@ def func_0_cl(df: DataFrame) -> DataFrame:
     return df
 
 
-def func_1_ts__code(df: DataFrame) -> DataFrame:
+def func_1_ts__stock_code(df: DataFrame) -> DataFrame:
     # ========================================
     df = df.with_columns(
-        _x_0=(ts_mean(CLOSE, 10)).over(CLOSE.is_not_null(), _ASSET_, order_by=_DATE_),
         MA5=(ts_mean(CLOSE, 5)).over(CLOSE.is_not_null(), _ASSET_, order_by=_DATE_),
-    )
-    return df
-
-
-def func_2_cs__time(df: DataFrame) -> DataFrame:
-    # ========================================
-    df = df.with_columns(
-        MA10=(cs_rank(_x_0)).over(_DATE_),
+        MA10=(ts_mean(CLOSE, 10)).over(CLOSE.is_not_null(), _ASSET_, order_by=_DATE_),
     )
     return df
 
@@ -71,17 +63,15 @@ def func_2_cs__time(df: DataFrame) -> DataFrame:
 """
 #========================================func_0_cl
 CLOSE = close*factor2
-#========================================func_1_ts__code
-_x_0 = ts_mean(CLOSE, 10)
+#========================================func_1_ts__stock_code
 MA5 = ts_mean(CLOSE, 5)
-#========================================func_2_cs__time
-MA10 = cs_rank(_x_0)
+MA10 = ts_mean(CLOSE, 10)
 """
 
 """
 CLOSE = close*factor2
 MA5 = ts_mean(CLOSE, 5)
-MA10 = cs_rank(ts_mean(CLOSE, 10))
+MA10 = ts_mean(CLOSE, 10)
 """
 
 
@@ -89,8 +79,7 @@ def main(df: DataFrame) -> DataFrame:
     # logger.info("start...")
 
     df = func_0_cl(df).drop(*[])
-    df = func_1_ts__code(df.sort(_ASSET_, _DATE_)).drop(*[])
-    df = func_2_cs__time(df.sort(_DATE_)).drop(*["_x_0"])
+    df = func_1_ts__stock_code(df.sort(_ASSET_, _DATE_)).drop(*[])
 
     # drop intermediate columns
     # df = df.select(pl.exclude(r'^_x_\d+$'))
