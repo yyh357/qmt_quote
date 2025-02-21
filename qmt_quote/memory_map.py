@@ -188,13 +188,6 @@ class SliceUpdater:
             步长。默认30分钟
 
         """
-        # 合并K线时存储数据使用，所以预留了几个位置
-        self.df1 = None  # 例如：历史1分钟
-        self.df2 = None  # 例如：历史日线
-        self.df3 = None  # 例如：合成的当天1分钟
-        self.df4 = None  # 例如：历史日线+当天日线
-        self.df5 = None  # 例如：历史1分钟+当天1分钟
-
         # 无重叠取数据
         self.start = 0
         self.end = 0

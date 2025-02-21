@@ -17,6 +17,7 @@ DTYPE_STOCK_1t = np.dtype([
     # ("pvolume", np.uint64),  # pvolume不维护，因为askVol/bidVol推送过来的都是手,计算vwap时要留意
     ("stockStatus", np.int8),  # 废弃了吗？
     ("openInt", np.int8),
+    ("type", np.int8),
     # ("transactionNum", np.uint32),
     # ("lastSettlementPrice", np.float32),
     # ("settlementPrice", np.float32),
@@ -61,6 +62,7 @@ DTYPE_STOCK_1m = np.dtype([
     ("preClose", np.float32),
     ("amount", np.float64),
     ("volume", np.uint64),
+    ("type", np.int8),
     # 分钟数据加入的字段，方便下单时直接取价格
     ("askPrice_1", np.float32),
     ("bidPrice_1", np.float32),

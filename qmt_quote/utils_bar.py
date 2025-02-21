@@ -36,7 +36,7 @@ def get_label_60(t: int, tz: int = 3600 * 8) -> int:
         if s > 54000:  # 15:00
             return 0
         if s < 34200:  # 9:30
-            n = 34200
+            n = 34200  # TODO 这里感觉QMT设计有问题
             break
         if s == 41400:  # 11:30
             n = 41400 - 60  # 11:29
@@ -57,26 +57,20 @@ def get_label_60_qmt(t: int, tz: int = 3600 * 8) -> int:
     11点30数据标签为11点29
 
     """
-    t = (t + tz) // 60 * 60  # 先转成秒再整理成分钟
-    t0 = t // 86400 * 86400
-    s = t - t0
-    n = s
-    while True:
-        if s < 33900:  # 9:25
-            return 0
-        if s > 54000:  # 15:00
-            return 0
-        if s < 34200:  # 9:30
-            n = 34200 - 60  # 9:29 TODO 这里感觉QMT设计有问题
-            break
-        if s == 41400:  # 11:30
-            n = 41400 - 60  # 11:29
-            break
-        if s == 54000:  # 15:00
-            n = 54000 - 60  # 14:59
-            break
-        break
-    return n + t0 + 60 - tz
+    out = get_label_60(t, tz)
+    if out == 0:
+        return 0
+    else:
+        return out + 60
+
+
+@njit(cache=True)
+def get_label_300(t: int, tz: int = 3600 * 8) -> int:
+    out = get_label_60(t, tz)
+    if out == 0:
+        return 0
+    else:
+        return out // 300 * 300
 
 
 @njit(cache=True)
@@ -118,6 +112,7 @@ class Bar:
         self.low: float = 0.
         self.last_amount: float = 0.
         self.last_volume: int = 0
+        self.type: int = 0
         self.askPrice_1: float = 0.
         self.bidPrice_1: float = 0.
         self.askVol_1: int = 0
@@ -137,6 +132,7 @@ class Bar:
         arr['preClose'] = self.pre_close
         arr['amount'] = self.last_amount - self.pre_amount
         arr['volume'] = self.last_volume - self.pre_volume
+        arr['type'] = self.type
         arr['askPrice_1'] = self.askPrice_1
         arr['bidPrice_1'] = self.bidPrice_1
         arr['askVol_1'] = self.askVol_1
@@ -155,6 +151,7 @@ class Bar:
         if self.time != time:
             self.time = time
             self.open_dt = arr['time']
+            self.type = arr['type']
             if self.is_minute:
                 self.pre_close = self.close
                 self.pre_amount = self.last_amount
@@ -239,6 +236,7 @@ if os.environ.get('NUMBA_DISABLE_JIT', '0') != '1':
         ('pre_volume', uint64),
         ('last_amount', float64),
         ('last_volume', uint64),
+        ('type', boolean),
         ('askPrice_1', float32),
         ('bidPrice_1', float32),
         ('askVol_1', uint32),

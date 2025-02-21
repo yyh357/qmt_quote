@@ -5,8 +5,7 @@ import pandas as pd
 from tqdm import tqdm
 from xtquant import xtdata
 
-from config import FILE_INDEX_1t, TOTAL_INDEX_1t  # noqa
-from config import FILE_STOCK_1t, TOTAL_STOCK_1t  # noqa
+from examples.config import FILE_1t, TOTAL_1t
 from qmt_quote.dtypes import DTYPE_STOCK_1t
 from qmt_quote.memory_map import get_mmap, update_array
 from qmt_quote.utils import ticks_to_dataframe, generate_code, input_with_timeout
@@ -26,12 +25,10 @@ G.沪深指数 = set(G.沪深指数)
 G.沪深基金 = set(G.沪深基金)
 print(f"沪深A股:{len(G.沪深A股)}, 沪深指数:{len(G.沪深指数)}, 沪深基金:{len(G.沪深基金)},")
 
-stk1, stk2 = get_mmap(FILE_STOCK_1t, DTYPE_STOCK_1t, TOTAL_STOCK_1t, readonly=False)
-idx1, idx2 = get_mmap(FILE_INDEX_1t, DTYPE_STOCK_1t, TOTAL_INDEX_1t, readonly=False)
+arr1t1, arrt12 = get_mmap(FILE_1t, DTYPE_STOCK_1t, TOTAL_1t, readonly=False)
 
 # 索引上的名字，在to_records时会用到,所以这里要剔除
-columns_stk = list(DTYPE_STOCK_1t.names)[1:]
-columns_idx = list(DTYPE_STOCK_1t.names)[1:]
+columns = list(DTYPE_STOCK_1t.names)[1:]
 
 
 def func(datas):
@@ -41,34 +38,33 @@ def func(datas):
     # TODO 这里的set可以替换成日线选股票池，减少股票数后处理速度更快
     d = {k: v for k, v in datas.items() if k in G.沪深A股}
     if len(d) > 0:
-        df = ticks_to_dataframe(d, now=now, index_name='stock_code', level=5, depths=["askPrice", "bidPrice", "askVol", "bidVol"])
-        start, step, end = update_array(stk1, stk2, df[columns_stk])
-        pbar_stk.update(step)
+        df = ticks_to_dataframe(d, now=now, index_name='stock_code', level=5,
+                                depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=1)
+        start, step, end = update_array(arr1t1, arrt12, df[columns])
+        pbar.update(step)
     # =======================
     d = {k: v for k, v in datas.items() if k in G.沪深指数}
     if len(d) > 0:
-        df = ticks_to_dataframe(d, now=now, index_name='stock_code', level=5)
-        start, step, end = update_array(idx1, idx2, df[columns_idx])
-        pbar_idx.update(step)
+        df = ticks_to_dataframe(d, now=now, index_name='stock_code', level=5,
+                                depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=0)
+        start, step, end = update_array(arr1t1, arrt12, df[columns])
+        pbar.update(step)
 
 
 if __name__ == "__main__":
-    print(f"股票当前指针：{stk2[0]}")
-    print(f"指数当前指针：{idx2[0]}")
+    print(f"当前指针：{arrt12[0]}")
     print('注意：仅在早上开盘前**重置文件指针**，用于覆盖昨天旧数据。盘中使用会导致今日已收数据被覆盖')
     code1 = generate_code(4)
     code2 = input_with_timeout(f"20秒內输入验证码重置文件指针({code1}/回车忽略)：", timeout=20)
     if code2 == code1:
-        stk2[0] = 0
-        idx2[0] = 0
+        arrt12[0] = 0
         print("!!!重置文件指针成功!!!")
     print()
     print("开始订阅行情，**输入`:q`退出**")
     print()
 
     bar_format = "{desc}: {percentage:5.2f}%|{bar}{r_bar}"
-    pbar_stk = tqdm(total=TOTAL_STOCK_1t, desc="股票", initial=int(stk2[0]), bar_format=bar_format, ncols=80)
-    pbar_idx = tqdm(total=TOTAL_INDEX_1t, desc="指数", initial=int(idx2[0]), bar_format=bar_format, ncols=80)
+    pbar = tqdm(total=TOTAL_1t, desc="股票/指数", initial=int(arrt12[0]), bar_format=bar_format, ncols=80)
 
     req = xtdata.subscribe_whole_quote(["SH", "SZ"], func)
 

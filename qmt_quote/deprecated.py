@@ -8,7 +8,7 @@
 """
 import polars as pl
 
-from examples.query import stk1, slice_stk_1m
+from examples.query import stk1, slice_1m
 from qmt_quote.utils import arr_to_pl, concat_interday, calc_factor, concat_intraday
 
 
@@ -126,19 +126,19 @@ def filter_suspend(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def process_day():
-    df = arr_to_pl(stk1[slice_stk_1m.for_day()])
+    df = arr_to_pl(stk1[slice_1m.for_day()])
     df = ticks_to_day(df)
     df = filter_suspend(df)
-    slice_stk_1m.df4 = concat_interday(slice_stk_1m.df2, df)
-    slice_stk_1m.df4 = calc_factor(slice_stk_1m.df4, by1='stock_code', by2='time', close='close', pre_close='preClose')
-    return slice_stk_1m.df4
+    slice_1m.df4 = concat_interday(slice_1m.df2, df)
+    slice_1m.df4 = calc_factor(slice_1m.df4, by1='stock_code', by2='time', close='close', pre_close='preClose')
+    return slice_1m.df4
 
 
 def process_min():
-    df = arr_to_pl(stk1[slice_stk_1m.for_minute()])
+    df = arr_to_pl(stk1[slice_1m.for_minute()])
     df = adjust_ticks_time_astock(df, col=pl.col('time'))
     df = ticks_to_minute(df, period="1m")
-    slice_stk_1m.df3 = concat_intraday(slice_stk_1m.df3, df, by1='stock_code', by2='time', by3='duration')
-    slice_stk_1m.df5 = concat_interday(slice_stk_1m.df1, slice_stk_1m.df3)
-    slice_stk_1m.df5 = calc_factor(slice_stk_1m.df5, by1='stock_code', by2='time', close='close', pre_close='preClose')
-    return slice_stk_1m.df5
+    slice_1m.df3 = concat_intraday(slice_1m.df3, df, by1='stock_code', by2='time', by3='duration')
+    slice_1m.df5 = concat_interday(slice_1m.df1, slice_1m.df3)
+    slice_1m.df5 = calc_factor(slice_1m.df5, by1='stock_code', by2='time', close='close', pre_close='preClose')
+    return slice_1m.df5

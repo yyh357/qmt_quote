@@ -19,19 +19,21 @@ import pandas as pd
 import polars as pl
 from loguru import logger
 
-from config import FILE_INDEX_1t, TOTAL_INDEX_1t, MINUTE1_INDEX, HISTORY_STOCK_1m, FILE_STOCK_1m, TOTAL_STOCK_1m, FILE_STOCK_1d, TOTAL_STOCK_1d  # noqa
-from config import FILE_STOCK_1t, TOTAL_STOCK_1t, MINUTE1_STOCK, HISTORY_STOCK_1d  # noqa
+from examples.config import FILE_1m, FILE_1d, TOTAL_1m, TOTAL_1d, HISTORY_STOCK_1d, HISTORY_STOCK_1m, MINUTE1, FILE_5m, TOTAL_5m
 from factor_calc import main
 from qmt_quote.dtypes import DTYPE_STOCK_1m
 from qmt_quote.memory_map import get_mmap, SliceUpdater
 from qmt_quote.utils import arr_to_pl, calc_factor, concat_interday
 
-stk1, stk2 = get_mmap(FILE_STOCK_1m, DTYPE_STOCK_1m, TOTAL_STOCK_1m, readonly=True)
-stk3, stk4 = get_mmap(FILE_STOCK_1d, DTYPE_STOCK_1m, TOTAL_STOCK_1d, readonly=True)
+arr1d1, arr1d2 = get_mmap(FILE_1d, DTYPE_STOCK_1m, TOTAL_1d, readonly=True)
+arr1m1, arr1m2 = get_mmap(FILE_1m, DTYPE_STOCK_1m, TOTAL_1m, readonly=True)
+arr5m1, arr5m2 = get_mmap(FILE_5m, DTYPE_STOCK_1m, TOTAL_5m, readonly=True)
 
 # 约定df1存1分钟数据，df2存日线数据
-slice_stk_1m = SliceUpdater(min1=6000 * 5, overlap_ratio=3, step_ratio=30)
-slice_stk_1d = SliceUpdater(min1=6000, overlap_ratio=3, step_ratio=30)
+slice_1d = SliceUpdater(min1=TOTAL_1d, overlap_ratio=3, step_ratio=30)
+slice_1m = SliceUpdater(min1=MINUTE1, overlap_ratio=3, step_ratio=30)
+slice_5m = SliceUpdater(min1=MINUTE1 * 5, overlap_ratio=3, step_ratio=30)
+
 # 加载历史数据
 pd.set_option('display.width', 1000)
 pd.set_option('display.max_columns', None)
@@ -81,13 +83,14 @@ if __name__ == "__main__":
         #     logger.info(curr_time)
 
         # 更新当前位置
-        start1, end1, current1 = slice_stk_1m.update(int(stk2[0]))
-        start2, end2, current2 = slice_stk_1d.update(int(stk4[0]))
-        logger.info("{}, {}, {}", start2, end2, current2)
+        start, end, current = slice_1d.update(int(arr1d2[0]))
+        start, end, current = slice_5m.update(int(arr5m2[0]))
+        start, end, current = slice_1m.update(int(arr1m2[0]))
+        logger.info("{}, {}, {}", start, end, current)
 
-        logger.info("分钟==================")
-        arr = stk1[slice_stk_1m.for_all()]
-        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
+        logger.info("1分钟==================")
+        arr = arr1m1[slice_1m.for_all()]
+        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt')).filter(pl.col('type') == 1)
         df = concat_interday(df, his_stk_1m)
         df = calc_factor(df)
         df = main(df)
@@ -95,11 +98,20 @@ if __name__ == "__main__":
         # print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
 
         logger.info("日线==================")
-        arr = stk3[slice_stk_1d.for_all()]
+        arr = arr1d1[slice_1d.for_all()]
         # print(arr)
-        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
+        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt')).filter(pl.col('type') == 1)
         df = concat_interday(his_stk_1d, df)
         df = calc_factor(df)
         df = main(df)
         logger.info("==================")
         # print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
+
+        logger.info("1分钟==================")
+        arr = arr5m1[slice_5m.for_all()]
+        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt')).filter(pl.col('type') == 1)
+        # df = concat_interday(df, his_stk_1m)
+        df = calc_factor(df)
+        df = main(df)
+        logger.info("==================")
+        print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())

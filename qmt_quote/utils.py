@@ -17,6 +17,7 @@ from polars import Expr
 def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
                        now: pd.Timestamp, index_name: str = 'stock_code',
                        level: int = 0, depths=["askPrice", "bidPrice", "askVol", "bidVol"],
+                       type: int = -1,
                        ) -> pd.DataFrame:
     """嵌套字典 转 DataFrame
 
@@ -34,6 +35,8 @@ def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
         行情深度
     depths
         深度行情列名
+    type:
+        类型。0指数1股票
 
 
     Returns
@@ -43,6 +46,7 @@ def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
     """
     df = pd.DataFrame.from_dict(datas, orient="index")
     df["now"] = now
+    df["type"] = type
 
     # 行情深度
     for i in range(level):
