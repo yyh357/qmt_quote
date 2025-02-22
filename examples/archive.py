@@ -1,5 +1,5 @@
-from config import FILE_INDEX_1t
-from config import FILE_STOCK_1t
+from config import FILE_1t, FILE_1m
+
 from qmt_quote.memory_map import mmap_truncate
 from qmt_quote.utils import generate_code
 
@@ -12,6 +12,6 @@ if __name__ == "__main__":
         if code2 == ":q":
             break
         if code1 == code2:
-            mmap_truncate(FILE_INDEX_1t)
-            mmap_truncate(FILE_STOCK_1t)
+            mmap_truncate(FILE_1t)
+            mmap_truncate(FILE_1m)
             break

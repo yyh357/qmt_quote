@@ -15,7 +15,7 @@ DTYPE_STOCK_1t = np.dtype([
     ("amount", np.float64),
     ("volume", np.uint64),
     # ("pvolume", np.uint64),  # pvolume不维护，因为askVol/bidVol推送过来的都是手,计算vwap时要留意
-    ("stockStatus", np.int8),  # 废弃了吗？
+    # ("stockStatus", np.int8),  # 废弃了吗？
     ("openInt", np.int8),
     ("type", np.int8),
     # ("transactionNum", np.uint32),

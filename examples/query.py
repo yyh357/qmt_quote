@@ -19,7 +19,7 @@ import pandas as pd
 import polars as pl
 from loguru import logger
 
-from examples.config import FILE_1m, FILE_1d, TOTAL_1m, TOTAL_1d, HISTORY_STOCK_1d, HISTORY_STOCK_1m, MINUTE1, FILE_5m, TOTAL_5m
+from examples.config import FILE_1m, FILE_1d, TOTAL_1m, TOTAL_1d, HISTORY_STOCK_1d, HISTORY_STOCK_1m, TICKS_PER_MINUTE, FILE_5m, TOTAL_5m
 from factor_calc import main
 from qmt_quote.dtypes import DTYPE_STOCK_1m
 from qmt_quote.memory_map import get_mmap, SliceUpdater
@@ -31,15 +31,15 @@ arr5m1, arr5m2 = get_mmap(FILE_5m, DTYPE_STOCK_1m, TOTAL_5m, readonly=True)
 
 # 约定df1存1分钟数据，df2存日线数据
 slice_1d = SliceUpdater(min1=TOTAL_1d, overlap_ratio=3, step_ratio=30)
-slice_1m = SliceUpdater(min1=MINUTE1, overlap_ratio=3, step_ratio=30)
-slice_5m = SliceUpdater(min1=MINUTE1 * 5, overlap_ratio=3, step_ratio=30)
+slice_1m = SliceUpdater(min1=TICKS_PER_MINUTE, overlap_ratio=3, step_ratio=30)
+slice_5m = SliceUpdater(min1=TICKS_PER_MINUTE * 5, overlap_ratio=3, step_ratio=30)
 
 # 加载历史数据
 pd.set_option('display.width', 1000)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', None)
 
-use_history = True
+use_history = False
 if use_history:
     # 历史日线，只设置一次，当天不再更新
     his_stk_1d = (
@@ -91,11 +91,11 @@ if __name__ == "__main__":
         logger.info("1分钟==================")
         arr = arr1m1[slice_1m.for_all()]
         df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt')).filter(pl.col('type') == 1)
-        df = concat_interday(df, his_stk_1m)
+        df = concat_interday(his_stk_1m, df)
         df = calc_factor(df)
         df = main(df)
         logger.info("==================")
-        # print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
+        print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
 
         logger.info("日线==================")
         arr = arr1d1[slice_1d.for_all()]
@@ -105,12 +105,12 @@ if __name__ == "__main__":
         df = calc_factor(df)
         df = main(df)
         logger.info("==================")
-        # print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
+        print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
 
-        logger.info("1分钟==================")
+        logger.info("5分钟==================")
         arr = arr5m1[slice_5m.for_all()]
         df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt')).filter(pl.col('type') == 1)
-        # df = concat_interday(df, his_stk_1m)
+        df = concat_interday(his_stk_1m, df)
         df = calc_factor(df)
         df = main(df)
         logger.info("==================")

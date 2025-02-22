@@ -11,21 +11,22 @@
 3. 在虚拟环境中安装`xtquant`
 4. 在虚拟环境中`pip install -r requirements.txt`
 5. 修改`config.py`中的配置。如：
-    - TICK_STOCK: 股票数据格式。一般不需要修改
-    - MINUTE1_STOCK: 股票1分钟收到的总TICK数量。一般要比实际的大一些，否则溢出报错
-    - TOTAL_STOCK: 股票的总记录条数，**一定要预留足够的空间**，否则溢出报错
-    - FILE_INDEX: 指数数据文件路径。会维护2个文件。一个存数据，一个记录最新位置
+    - TOTAL_ASSET: 股票+指数 的数量
+    - TICKS_PER_MINUTE: 股票1分钟收到的总TICK数量。一般要比实际的大一些，否则溢出报错
+    - TOTAL_1t: Tick总记录条数，**一定要预留足够的空间**，否则溢出报错
+    - FILE_1d: 数据文件路径。会维护2个文件。一个存数据，一个记录最新位置
     - HISTORY_STOCK_1d: 历史数据保存位置。用于盘前准备历史数据
 6. 运行`QMT普通版`, 手动下载历史数据。一般在交易日收盘后16点以后运行
 7. 运行`prepare_history.py`, 准备历史数据。会将历史数据转存到`HISTORY_STOCK_1d`等位置
-8. 运行`python subscribe_all.py`, 转存全推行情。需要在开盘前运行，否则错失数据
-9. 运行`archive.py`, 收盘后归档。需要在收盘后运行
+8. 运行`python subscribe_tick.py`, 转存全推行情。需要在开盘前运行，否则错失数据
+9. 运行`python subscribe_minute.py`, Tick转K线。可盘中再启动
+10. 运行`archive.py`, 收盘后归档。需要在收盘后运行
 
 ## 进阶用法
 
 1. 运行`query.py`，可实时查看`K线数据`和`tick数据`。这也是增量取数据的方式
    - 内已经提供了调用因子计算函数的代码，可自行修改`factor_codegen.py`中的代码
-2. 每次切换环境、运行脚本比较麻烦，可以直接双击运行`run.bat`
+2. 每次切换环境、运行脚本比较麻烦，可以直接双击运行`run_tick.bat`
 
 ## 注意
 
@@ -36,4 +37,4 @@
 
 ## 技巧
 
-1. 运行`run.bat`后非常担心不小心将窗口关闭。`Windows Terminal`可以再开一个选项卡，这样多个选项卡关闭时会提示
+1. 运行`run_tick.bat`后非常担心不小心将窗口关闭。`Windows Terminal`可以再开一个选项卡，这样多个选项卡关闭时会提示
