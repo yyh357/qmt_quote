@@ -26,6 +26,8 @@ G.沪深基金 = set(G.沪深基金)
 print(f"沪深A股:{len(G.沪深A股)}, 沪深指数:{len(G.沪深指数)}, 沪深基金:{len(G.沪深基金)},")
 
 arr1t1, arrt12 = get_mmap(FILE_1t, DTYPE_STOCK_1t, TOTAL_1t, readonly=False)
+# # 更新总长度
+# TOTAL_1t = len(arr1t1)
 
 # 索引上的名字，在to_records时会用到,所以这里要剔除
 columns = list(DTYPE_STOCK_1t.names)[1:]
@@ -52,6 +54,7 @@ def func(datas):
 
 
 if __name__ == "__main__":
+    print("=" * 60)
     print(f"当前指针：{arrt12[0]}")
     print('注意：仅在早上开盘前**重置文件指针**，用于覆盖昨天旧数据。盘中使用会导致今日已收数据被覆盖')
     code1 = generate_code(4)

@@ -13,6 +13,14 @@ def objs_to_dataframe(obj):
     return pd.DataFrame.from_records([to_dict(o) for o in obj])
 
 
+def price_plan(is_buy: bool, bid_1: float, ask_1: float, last_price: float = 0.0):
+    # https://github.com/openctp/openctp/blob/master/demo/ctpping/ThostFtdcUserApiDataType.h#L747
+    if is_buy:
+        pass
+    else:
+        pass
+
+
 @njit
 def adjust_price1(is_buy: bool, price: float,
                   bid_1: float, ask_1: float,
@@ -50,13 +58,19 @@ def adjust_price1(is_buy: bool, price: float,
 def adjust_price2(is_buy: bool, price: float,
                   limit_down: float = 0.0, limit_up: float = 99999.0,
                   ndigits: int = 100) -> float:
-    """买卖价不能超过涨跌停价"""
+    """买卖价不能超过涨跌停价
+
+    Notes
+    -----
+    TODO 上市第一天的涨幅一定时停牌，这里要再设计
+
+    """
     if is_buy:
         price = math.floor(price * ndigits) / ndigits
-        return min(limit_up, price)
+        return max(min(limit_up, price), limit_down)
     else:
         price = math.ceil(price * ndigits) / ndigits
-        return max(limit_down, price)
+        return min(max(limit_down, price), limit_up)
 
 
 @njit

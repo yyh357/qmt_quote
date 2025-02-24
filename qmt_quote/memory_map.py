@@ -67,19 +67,22 @@ def truncate_file_size(file_path: str, new_size: int) -> None:
         print(f"File {file_path} has been truncated from {old_size} to {new_size} bytes.")
 
 
-def mmap_truncate(filename: str):
+def mmap_truncate(filename: str, reserve: int = 10000):
     """截断内存映射文件
 
     Parameters
     ----------
     filename
+    reserve: int
+        预留行数
 
     """
+    assert reserve >= 0
     file1 = filename + _EXT1_
     file2 = filename + _EXT2_
 
     arr2 = np.memmap(file2, dtype=np.uint64, shape=(_COUNT_,), mode="r")
-    truncate_file_size(file1, int(arr2[0] * arr2[1]))
+    truncate_file_size(file1, int((arr2[0] + reserve) * arr2[1]))
 
 
 def get_mmap(filename: str, dtype: np.dtype, count: int, readonly: bool = True, resize: bool = False) -> Tuple[np.ndarray, np.ndarray]:
