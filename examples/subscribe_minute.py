@@ -23,7 +23,7 @@ if __name__ == "__main__":
     print()
 
     bar_format = "{desc}: {percentage:5.2f}%|{bar}{r_bar}"
-    pbar_1t = tqdm(total=TOTAL_1m, desc="股票/指数 来自1t", initial=0, bar_format=bar_format, ncols=80)
+    pbar_1t = tqdm(total=TOTAL_1m, desc="股票+指数 来自1t", initial=0, bar_format=bar_format, ncols=80)
     # pbar_1m = tqdm(total=TOTAL_5m, desc="股票/指数 来自1m", initial=0, bar_format=bar_format, ncols=80)
 
     bm_1d = BarManager(arr1d1, arr1d2, False, True)
@@ -48,8 +48,9 @@ if __name__ == "__main__":
         start3, end3, step3 = bm_1m.extend_ticks(arr1t, get_label_stock_1m, 3600 * 8)
         if step3 > 0:
             pbar_1t.update(step3)
+            time.sleep(0.5)
         else:
-            time.sleep(1)
+            time.sleep(2)
 
         # 1分钟数据转5分钟数据，由于要用全量1m数据，感觉效率低,但可用在非实盘环境
         test_5m = False

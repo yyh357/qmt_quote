@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta
 
+import polars as pl
 from loguru import logger
 from xtquant import xtdata
 
-from examples.config import HISTORY_STOCK_1d, HISTORY_INDEX_1d, HISTORY_STOCK_1m, DATA_DIR
+from examples.config import HISTORY_STOCK_1d, HISTORY_INDEX_1d, HISTORY_STOCK_1m, DATA_DIR, HISTORY_STOCK_5m
+from qmt_quote.utils_bar import minute_1m_to_5m
 from qmt_quote.utils_qmt import get_local_data_wrap
 
 # 开盘前需要先更新板块数据，因为会有新股上市
@@ -19,11 +21,11 @@ def save_1d(start_time, end_time):
     print(start_time, end_time, period)
     df = get_local_data_wrap(G.沪深A股, period, start_time, end_time, data_dir=DATA_DIR)
     df.write_parquet(HISTORY_STOCK_1d)
-    print('沪深A股===========')
+    print('沪深A股_1d===========')
     print(df)
     df = get_local_data_wrap(G.沪深指数, period, start_time, end_time, data_dir=DATA_DIR)
     df.write_parquet(HISTORY_INDEX_1d)
-    print('沪深指数===========')
+    print('沪深指数_1d===========')
     print(df)
 
 
@@ -32,7 +34,16 @@ def save_1m(start_time, end_time):
     print(start_time, end_time, period)
     df = get_local_data_wrap(G.沪深A股, period, start_time, end_time, data_dir=DATA_DIR)
     df.write_parquet(HISTORY_STOCK_1m)
-    print('沪深A股===========')
+    print('沪深A股_1m===========')
+    print(df)
+
+
+def save_5m():
+    period = '5m'
+    df = pl.read_parquet(HISTORY_STOCK_1m).filter(pl.col('stock_code') == '000001.SZ')
+    df = minute_1m_to_5m(df, period, closed="right", label="right")
+    df.write_parquet(HISTORY_STOCK_5m)
+    print('沪深A股_5m===========')
     print(df)
 
 
@@ -46,8 +57,11 @@ if __name__ == "__main__":
     # end_time = "20250213"  # 测试用，以后要注释
 
     # ==========
-    logger.info('开始转存数据。请根据自己策略预留一定长度的数据')
+    # logger.info('开始转存数据。请根据自己策略预留一定长度的数据')
     start_time = "20250101"
     save_1d(start_time, end_time)
     start_time = "20250201"
     save_1m(start_time, end_time)
+    # ==========
+    logger.info('1分钟转5分钟')
+    save_5m()

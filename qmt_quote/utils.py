@@ -19,7 +19,7 @@ def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
                        level: int = 0, depths=["askPrice", "bidPrice", "askVol", "bidVol"],
                        type: int = -1,
                        ) -> pd.DataFrame:
-    """嵌套字典 转 DataFrame
+    """字典嵌套字典 转 DataFrame
 
     在全推行情中，接收到的嵌套字典转成DataFrame
 
@@ -36,8 +36,11 @@ def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
     depths
         深度行情列名
     type:
-        类型。0指数1股票
-
+        类型。
+            'index'		#指数
+            'stock'		#股票
+            'fund'		#基金
+            'etf'		#ETF
 
     Returns
     -------
@@ -60,7 +63,7 @@ def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
 
 
 def concat_dataframes_from_dict(datas: Dict[str, pd.DataFrame]) -> pl.DataFrame:
-    """ 拼接DataFrame
+    """拼接字典套DataFrame
 
     Parameters
     ----------
@@ -72,13 +75,30 @@ def concat_dataframes_from_dict(datas: Dict[str, pd.DataFrame]) -> pl.DataFrame:
 
 
 def cast_datetime(df: pl.DataFrame, col: pl.Expr = pl.col('time')) -> pl.DataFrame:
-    """ 转换时间列
+    """转换时间列
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        polars DataFrame
+    col : pl.Expr
+        时间列。可以同时转换多个列，如：pl.col('time', 'open_dt', 'close_dt')
+
     """
     return df.with_columns(col.cast(pl.Datetime(time_unit="ms", time_zone="Asia/Shanghai")))
 
 
 def arr_to_pl(arr: np.ndarray, col: Expr = pl.col('time')) -> pl.DataFrame:
-    """numpy数组转polars DataFrame"""
+    """numpy数组转polars DataFrame
+
+    Parameters
+    ----------
+    arr : np.ndarray
+        numpy数组
+    col : pl.Expr
+        时间列。可以同时转换多个列，如：pl.col('time', 'open_dt', 'close_dt')
+
+    """
     return cast_datetime(pl.from_numpy(arr), col)
 
 
@@ -90,6 +110,19 @@ def concat_intraday(df1: pl.DataFrame, df2: pl.DataFrame, by1: str = 'stock_code
     1. 前一DataFrame后期数据不完整
     2. 后一DataFrame前期数据不完整
     3. 前后DataFrame有重复数据
+
+    Parameters
+    ----------
+    df1 : pl.DataFrame
+        前一DataFrame
+    df2 : pl.DataFrame
+        后一DataFrame
+    by1 : str
+        分组字段
+    by2 : str
+        排序字段
+    by3 : str
+        去重字段
 
     """
     if df1 is None:
@@ -117,10 +150,10 @@ def concat_interday(df1: pl.DataFrame, df2: pl.DataFrame) -> pl.DataFrame:
     return pl.concat([df1.select(*cols), df2.select(*cols)], how="vertical")
 
 
-def calc_factor(df: pl.DataFrame,
-                by1: str = 'stock_code', by2: str = 'time',
-                close: str = 'close', pre_close: str = 'preClose') -> pl.DataFrame:
-    """计算复权因子，使用交易所发布的昨收盘价计算
+def calc_factor1(df: pl.DataFrame,
+                 by1: str = 'stock_code', by2: str = 'time',
+                 close: str = 'close', pre_close: str = 'preClose') -> pl.DataFrame:
+    """计算复权因子，乘除法。使用交易所发布的昨收盘价计算
 
     Parameters
     ----------
@@ -143,8 +176,40 @@ def calc_factor(df: pl.DataFrame,
     df = (
         df
         .sort(by1, by2)
-        .with_columns(factor1=(pl.col(close).shift(1) / pl.col(pre_close)).fill_null(1).round(8).over(by1, order_by=by2))
+        .with_columns(factor1=(pl.col(close).shift(1, fill_value=pl.col(pre_close)) / pl.col(pre_close)).round(8).over(by1, order_by=by2))
         .with_columns(factor2=(pl.col('factor1').cum_prod()).over(by1, order_by=by2))
+    )
+    return df
+
+
+def calc_factor2(df: pl.DataFrame,
+                 by1: str = 'stock_code', by2: str = 'time',
+                 close: str = 'close', pre_close: str = 'preClose') -> pl.DataFrame:
+    """计算复权因子，加减法。使用交易所发布的昨收盘价计算
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        数据
+    by1 : str
+        分组字段
+    by2 : str
+        排序字段
+    close : str
+        收盘价字段
+    pre_close : str
+        昨收盘价字段
+
+    Notes
+    -----
+    不关心是否真发生了除权除息过程，只要知道前收盘价和收盘价不等就表示发生了除权除息
+
+    """
+    df = (
+        df
+        .sort(by1, by2)
+        .with_columns(factor1=(pl.col(close).shift(1, fill_value=pl.col(pre_close)) - pl.col(pre_close)).round(8).over(by1, order_by=by2))
+        .with_columns(factor2=(pl.col('factor1').cum_sum()).over(by1, order_by=by2))
     )
     return df
 

@@ -19,11 +19,11 @@ import pandas as pd
 import polars as pl
 from loguru import logger
 
-from examples.config import FILE_1m, FILE_1d, TOTAL_1m, TOTAL_1d, HISTORY_STOCK_1d, HISTORY_STOCK_1m, TICKS_PER_MINUTE, FILE_5m, TOTAL_5m
+from examples.config import FILE_1m, FILE_1d, TOTAL_1m, TOTAL_1d, HISTORY_STOCK_1d, HISTORY_STOCK_1m, TICKS_PER_MINUTE, FILE_5m, TOTAL_5m, HISTORY_STOCK_5m
 from factor_calc import main
 from qmt_quote.dtypes import DTYPE_STOCK_1m
 from qmt_quote.memory_map import get_mmap, SliceUpdater
-from qmt_quote.utils import arr_to_pl, calc_factor, concat_interday
+from qmt_quote.utils import arr_to_pl, calc_factor1, concat_interday
 
 arr1d1, arr1d2 = get_mmap(FILE_1d, DTYPE_STOCK_1m, TOTAL_1d, readonly=True)
 arr1m1, arr1m2 = get_mmap(FILE_1m, DTYPE_STOCK_1m, TOTAL_1m, readonly=True)
@@ -39,8 +39,8 @@ pd.set_option('display.width', 1000)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', None)
 
-use_history = False
-if use_history:
+
+def load_history_data():
     # 历史日线，只设置一次，当天不再更新
     his_stk_1d = (
         pl.read_parquet(HISTORY_STOCK_1d)
@@ -60,9 +60,22 @@ if use_history:
             pl.col('volume').cast(pl.UInt64),
         )
     )
-else:
-    his_stk_1d = None
-    his_stk_1m = None
+    # 历史5分钟线，只设置一次，当天不再更新
+    his_stk_5m = (
+        pl.read_parquet(HISTORY_STOCK_5m)
+        .filter(pl.col('suspendFlag') == 0)
+        .with_columns(
+            pl.col('open', 'high', 'low', 'close', 'preClose').cast(pl.Float32),
+            pl.col('volume').cast(pl.UInt64),
+        )
+    )
+    return his_stk_1d, his_stk_1m, his_stk_5m
+
+
+# 仅当日
+his_stk_1d, his_stk_1m, his_stk_5m = None, None, None
+# 取历史
+his_stk_1d, his_stk_1m, his_stk_5m = load_history_data()
 
 if __name__ == "__main__":
     last_time = -1
@@ -90,28 +103,30 @@ if __name__ == "__main__":
 
         logger.info("1分钟==================")
         arr = arr1m1[slice_1m.for_all()]
-        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt')).filter(pl.col('type') == 1)
+        arr = arr[arr['type'] == 1]  # 过滤掉指数，只处理股票
+        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
         df = concat_interday(his_stk_1m, df)
-        df = calc_factor(df)
+        df = calc_factor1(df)
         df = main(df)
         logger.info("==================")
         print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
 
         logger.info("日线==================")
         arr = arr1d1[slice_1d.for_all()]
-        # print(arr)
-        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt')).filter(pl.col('type') == 1)
+        arr = arr[arr['type'] == 1]
+        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
         df = concat_interday(his_stk_1d, df)
-        df = calc_factor(df)
+        df = calc_factor1(df)
         df = main(df)
         logger.info("==================")
         print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
 
         logger.info("5分钟==================")
         arr = arr5m1[slice_5m.for_all()]
-        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt')).filter(pl.col('type') == 1)
-        df = concat_interday(his_stk_1m, df)
-        df = calc_factor(df)
+        arr = arr[arr['type'] == 1]
+        df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
+        df = concat_interday(his_stk_5m, df)
+        df = calc_factor1(df)
         df = main(df)
         logger.info("==================")
         print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
