@@ -22,8 +22,8 @@ FILE_5m = r"M:\5m"
 FILE_1d = r"M:\1d"
 
 # TODO: 历史数据文件
-HISTORY_STOCK_1d = r"M:\stock_1d.parquet"
-HISTORY_INDEX_1d = r"M:\index_1d.parquet"
-HISTORY_STOCK_1m = r"M:\stock_1m.parquet"
-HISTORY_INDEX_1m = r"M:\index_1m.parquet"
-HISTORY_STOCK_5m = r"M:\stock_5m.parquet"
+HISTORY_STOCK_1d = r"F:\stock_1d.parquet"
+HISTORY_INDEX_1d = r"F:\index_1d.parquet"
+HISTORY_STOCK_1m = r"F:\stock_1m.parquet"
+HISTORY_INDEX_1m = r"F:\index_1m.parquet"
+HISTORY_STOCK_5m = r"F:\stock_5m.parquet"

@@ -19,12 +19,13 @@ import pandas as pd
 import polars as pl
 from loguru import logger
 
-from examples.config import FILE_1m, FILE_1d, TOTAL_1m, TOTAL_1d, HISTORY_STOCK_1d, HISTORY_STOCK_1m, TICKS_PER_MINUTE, FILE_5m, TOTAL_5m, HISTORY_STOCK_5m
+from examples.config import FILE_1m, FILE_1d, TOTAL_1m, TOTAL_1d, HISTORY_STOCK_1d, HISTORY_STOCK_1m, TICKS_PER_MINUTE, FILE_5m, TOTAL_5m, HISTORY_STOCK_5m, FILE_1t, TOTAL_1t
 from factor_calc import main
-from qmt_quote.dtypes import DTYPE_STOCK_1m
+from qmt_quote.dtypes import DTYPE_STOCK_1m, DTYPE_STOCK_1t
 from qmt_quote.memory_map import get_mmap, SliceUpdater
 from qmt_quote.utils import arr_to_pl, calc_factor1, concat_interday
 
+arr1t1, arr1t2 = get_mmap(FILE_1t, DTYPE_STOCK_1t, TOTAL_1t, readonly=True)
 arr1d1, arr1d2 = get_mmap(FILE_1d, DTYPE_STOCK_1m, TOTAL_1d, readonly=True)
 arr1m1, arr1m2 = get_mmap(FILE_1m, DTYPE_STOCK_1m, TOTAL_1m, readonly=True)
 arr5m1, arr5m2 = get_mmap(FILE_5m, DTYPE_STOCK_1m, TOTAL_5m, readonly=True)
@@ -75,7 +76,7 @@ def load_history_data():
 # 仅当日
 his_stk_1d, his_stk_1m, his_stk_5m = None, None, None
 # 取历史
-his_stk_1d, his_stk_1m, his_stk_5m = load_history_data()
+# his_stk_1d, his_stk_1m, his_stk_5m = load_history_data()
 
 if __name__ == "__main__":
     last_time = -1
@@ -101,6 +102,11 @@ if __name__ == "__main__":
         start, end, current = slice_1m.update(int(arr1m2[0]))
         logger.info("{}, {}, {}", start, end, current)
 
+        # arr = arr1t1[slice_1m.for_minute()]
+        # arr = arr[arr['type'] == 1]
+        # df = arr_to_pl(arr, col=pl.col('time'))
+        # print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
+
         logger.info("1分钟==================")
         arr = arr1m1[slice_1m.for_all()]
         arr = arr[arr['type'] == 1]  # 过滤掉指数，只处理股票
@@ -109,7 +115,7 @@ if __name__ == "__main__":
         df = calc_factor1(df)
         df = main(df)
         logger.info("==================")
-        print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
+        # print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
 
         logger.info("日线==================")
         arr = arr1d1[slice_1d.for_all()]
@@ -119,7 +125,7 @@ if __name__ == "__main__":
         df = calc_factor1(df)
         df = main(df)
         logger.info("==================")
-        print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
+        # print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
 
         logger.info("5分钟==================")
         arr = arr5m1[slice_5m.for_all()]
@@ -129,4 +135,4 @@ if __name__ == "__main__":
         df = calc_factor1(df)
         df = main(df)
         logger.info("==================")
-        print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
+        # print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())

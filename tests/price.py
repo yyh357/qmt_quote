@@ -1,0 +1,17 @@
+from qmt_quote.utils_trade import adjust_price2, adjust_price1, adjust_price0
+
+print(adjust_price2(True, 20, 10, 11, 100))
+print(adjust_price2(True, 10.55, 10, 11, 5))
+print(adjust_price2(False, 10.55, 10, 11, 5))
+print('=' * 60)
+print(adjust_price1(True, 20, 10, 11, 15, 10))
+print(adjust_price1(False, 0, 10, 11, 15, 10))
+print(adjust_price1(True, 20, 0, 0, 15, 10))
+print(adjust_price1(False, 0, 0, 0, 15, 10))
+print(adjust_price1(False, 0, 0, 0, 0, 10))
+print(adjust_price1(True, 6, 4, 5, 15, 10))
+print('=' * 60)
+print(adjust_price0(True, 0, 0, 10, 11, 15, 12))
+print(adjust_price0(True, 1, 1, 10, 11, 15, 12))
+print(adjust_price0(False, 1, 1, 10, 11, 15, 12))
+print(adjust_price0(False, 1, 2, 0, 0, 0, 12))

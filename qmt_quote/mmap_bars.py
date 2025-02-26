@@ -429,6 +429,9 @@ class BarManager:
         """
         last_index = self.index
         for t in ticks:
+            if t['open'] == 0:
+                # 出现部分股票9点25过几秒open价还是0的情况
+                continue
             # TODO 时间戳请选用特别的格式
             time = get_label(t['time'] // 1000, get_label_arg1) * 1000
             if time == 0:
