@@ -1,7 +1,12 @@
 """
 订阅行情数据，保存到内存映射文件中
+1. 启动前请先同步网络时间
+2. 股票请在9点14分钟前启动
+3. 启动前确保数据文件合适大小
+4. 15点以后再关闭，否则错失中间数据
 """
-import pandas as pd
+from datetime import datetime
+
 from tqdm import tqdm
 from xtquant import xtdata
 
@@ -26,35 +31,44 @@ G.沪深基金 = set(G.沪深基金)
 print(f"沪深A股:{len(G.沪深A股)}, 沪深指数:{len(G.沪深指数)}, 沪深基金:{len(G.沪深基金)},")
 
 arr1t1, arrt12 = get_mmap(FILE_1t, DTYPE_STOCK_1t, TOTAL_1t, readonly=False)
-# # 更新总长度
-# TOTAL_1t = len(arr1t1)
 
 # 索引上的名字，在to_records时会用到,所以这里要剔除
 columns = list(DTYPE_STOCK_1t.names)[1:]
 
 
 def func(datas):
-    # 获取当前时间
-    now = pd.Timestamp.now()
+    # 获取当前时间转ms
+    now = datetime.now().timestamp()
+    now_ms = int(now * 1000)
     # =======================
     # TODO 这里的set可以替换成日线选股票池，减少股票数后处理速度更快
+    step_ = 0
+    end_ = 0
     d = {k: v for k, v in datas.items() if k in G.沪深A股}
     if len(d) > 0:
-        df = ticks_to_dataframe(d, now=now, index_name='stock_code', level=5,
+        df = ticks_to_dataframe(d, now=now_ms, index_name='stock_code', level=5,
                                 depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=1)
-        start, step, end = update_array(arr1t1, arrt12, df[columns])
-        pbar.update(step)
+        start, end, step = update_array(arr1t1, arrt12, df[columns])
+        step_ += step
+        end_ = end
     # =======================
     d = {k: v for k, v in datas.items() if k in G.沪深指数}
     if len(d) > 0:
-        df = ticks_to_dataframe(d, now=now, index_name='stock_code', level=5,
+        df = ticks_to_dataframe(d, now=now_ms, index_name='stock_code', level=5,
                                 depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=0)
-        start, step, end = update_array(arr1t1, arrt12, df[columns])
-        pbar.update(step)
+        start, end, step = update_array(arr1t1, arrt12, df[columns])
+        step_ += step
+        end_ = end
+    # =======================
+    if step_ > 0:
+        t = arr1t1[end_ - 1]['time'] / 1000
+        pbar.update(step_)
+        pbar.set_description(f"延时 {now - t:8.3f}s")
 
 
 if __name__ == "__main__":
     print("=" * 60)
+    print("启动前请先同步网络时间")
     print(f"当前指针：{arrt12[0]}")
     print('注意：仅在早上开盘前**重置文件指针**，用于覆盖昨天旧数据。盘中使用会导致今日已收数据被覆盖')
     code1 = generate_code(4)
@@ -67,7 +81,7 @@ if __name__ == "__main__":
     print()
 
     bar_format = "{desc}: {percentage:5.2f}%|{bar}{r_bar}"
-    pbar = tqdm(total=TOTAL_1t, desc="股票+指数", initial=int(arrt12[0]), bar_format=bar_format, ncols=80)
+    pbar = tqdm(total=TOTAL_1t, desc="股票+指数", initial=int(arrt12[0]), bar_format=bar_format, ncols=100)
 
     req = xtdata.subscribe_whole_quote(["SH", "SZ"], func)
 

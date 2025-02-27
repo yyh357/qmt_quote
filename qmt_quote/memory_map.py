@@ -159,7 +159,8 @@ def update_array(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame) -> Tuple[
     end = start + step
     arr1[start:end] = arr
     arr2[0] = end
-    return int(start), step, int(end)
+    # arr2.flush()
+    return int(start), int(end), step
 
 
 class SliceUpdater:

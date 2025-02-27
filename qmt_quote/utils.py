@@ -6,7 +6,7 @@ import queue
 import random
 import string
 import threading
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -15,7 +15,7 @@ from polars import Expr
 
 
 def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
-                       now: pd.Timestamp, index_name: str = 'stock_code',
+                       now: int, index_name: str = 'stock_code',
                        level: int = 0, depths=["askPrice", "bidPrice", "askVol", "bidVol"],
                        type: int = -1,
                        ) -> pd.DataFrame:
@@ -27,8 +27,8 @@ def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
     ----------
     datas : dict
         字典数据
-    now : pd.Timestamp
-        当前时间
+    now :int
+        当前时间戳
     index_name
         索引名，资产名
     level : int
@@ -102,7 +102,7 @@ def arr_to_pl(arr: np.ndarray, col: Expr = pl.col('time')) -> pl.DataFrame:
     return cast_datetime(pl.from_numpy(arr), col)
 
 
-def concat_intraday(df1: pl.DataFrame, df2: pl.DataFrame, by1: str = 'stock_code', by2: str = 'time', by3: str = 'duration') -> pl.DataFrame:
+def concat_intraday(df1: Optional[pl.DataFrame], df2: pl.DataFrame, by1: str = 'stock_code', by2: str = 'time', by3: str = 'duration') -> pl.DataFrame:
     """日内分钟合并，需要排除重复
 
     数据是分批到来的，所以合成K线也是分批的，但很有可能出现不完整的数据，用duration来排除重复数据,只选最大的
@@ -140,7 +140,7 @@ def get_common_elements(list1, list2):
     return [x for x in list1 if x in common_set]
 
 
-def concat_interday(df1: pl.DataFrame, df2: pl.DataFrame) -> pl.DataFrame:
+def concat_interday(df1: Optional[pl.DataFrame], df2: pl.DataFrame) -> pl.DataFrame:
     """日间线合并，不会重复，但格式会有偏差"""
     if df1 is None:
         return df2

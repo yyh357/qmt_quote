@@ -5,7 +5,7 @@ import numpy as np
 
 DTYPE_STOCK_1t = np.dtype([
     ("stock_code", "U9"),
-    ("now", "<M8[ns]"),  # 添加本地时间字段
+    ("now", np.uint64),  # 添加本地时间字段
     ("time", np.uint64),
     ("lastPrice", np.float32),
     ("open", np.float32),

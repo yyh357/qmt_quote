@@ -51,3 +51,12 @@ def filter_suspend(df: pl.DataFrame) -> pl.DataFrame:
 #     slice_1m.df5 = concat_interday(slice_1m.df1, slice_1m.df3)
 #     slice_1m.df5 = calc_factor(slice_1m.df5, by1='stock_code', by2='time', close='close', pre_close='preClose')
 #     return slice_1m.df5
+
+
+# # 1分钟数据转5分钟数据，由于要用全量1m数据，感觉效率低,但可用在非实盘环境
+# test_5m = False
+# if test_5m:
+#     start, end, cursor = slice_1m.update(int(arr1m2[0]))
+#     arr1m = arr1m1[slice_1m.for_all()]
+#     bm_5m.reset()
+#     start, end, step = bm_5m.extend_bars(arr1m, get_label_stock_5m, 3600 * 8)

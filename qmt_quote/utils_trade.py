@@ -309,6 +309,8 @@ def cancel_orders(trader, account, orders: pd.DataFrame,
 
 
     """
+    if orders.empty:
+        return orders
     if 'order_status' in orders.columns:
         # 55部成 52部成待撤, 这两状态有什么区别
         orders = orders.query(f'(order_status==@ORDER_PART_SUCC) | (order_status<=@ORDER_PARTSUCC_CANCEL)')
