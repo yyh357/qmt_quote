@@ -2,13 +2,15 @@
 依赖于QMT的工具函数
 """
 import time
+from datetime import datetime
 
+import numpy as np
 import pandas as pd
 import polars as pl
 from tqdm import tqdm
 from xtquant import xtdata
 
-from qmt_quote.utils import cast_datetime, concat_dataframes_from_dict, ticks_to_dataframe
+from qmt_quote.utils import cast_datetime, concat_dataframes_from_dict, ticks_to_dataframe, arr_to_pl, concat_interday, calc_factor1
 
 
 def download_history_data2_wrap(desc, stock_list, period, start_time, end_time):
@@ -48,8 +50,48 @@ def get_instrument_detail_wrap(stock_list) -> pd.DataFrame:
 
 def get_full_tick_1d(stock_list, level: int, rename: bool) -> pd.DataFrame:
     """获取tick数据，加了level后成日k线数据"""
+    now = datetime.now().timestamp()
+    now_ms = int(now * 1000)
+
     ticks = xtdata.get_full_tick(stock_list)
-    ticks = ticks_to_dataframe(ticks, now=pd.Timestamp.now(), index_name='stock_code', level=level)
+    ticks = ticks_to_dataframe(ticks, now=now_ms, index_name='stock_code', level=level)
     if rename:
         ticks = ticks.rename(columns={'lastPrice': 'close', 'lastClose': 'preClose'})
     return ticks
+
+
+def load_history_data(path) -> pl.DataFrame:
+    df = pl.read_parquet(path)
+    df = df.filter(pl.col('suspendFlag') == 0).with_columns(
+        pl.col('open', 'high', 'low', 'close', 'preClose').cast(pl.Float32),
+        pl.col('volume').cast(pl.UInt64),
+    )
+    return df
+
+
+def last_factor(arr: np.ndarray, his: pl.DataFrame = None, filter_time: int = 0, func=None) -> pl.DataFrame:
+    """获取最终因子值
+
+    Parameters
+    ----------
+    arr:
+        当日分钟数据
+    his
+        历史数据
+    filter_time:int
+        取指定时间值
+    func
+        因子计算函数
+
+    """
+    arr = arr[arr['type'] == 1]  # 过滤掉指数，只处理股票
+    if filter_time > 0:
+        arr = arr[arr['time'] <= filter_time]
+    df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
+    df = concat_interday(his, df)
+    df = calc_factor1(df)
+    if func is not None:
+        df = func(df)
+    if filter_time > 0:
+        df = df.filter(pl.col('time').dt.timestamp(time_unit='ms') == filter_time)
+    return df

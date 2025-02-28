@@ -10,9 +10,9 @@ from datetime import datetime
 from tqdm import tqdm
 from xtquant import xtdata
 
-from examples.config import FILE_1t, TOTAL_1t
+from examples.config import FILE_d1t, TOTAL_1t
 from qmt_quote.dtypes import DTYPE_STOCK_1t
-from qmt_quote.memory_map import get_mmap, update_array
+from qmt_quote.memory_map import get_mmap, update_array2
 from qmt_quote.utils import ticks_to_dataframe, generate_code, input_with_timeout
 
 # 开盘前需要先更新板块数据，因为会有新股上市
@@ -30,7 +30,7 @@ G.沪深指数 = set(G.沪深指数)
 G.沪深基金 = set(G.沪深基金)
 print(f"沪深A股:{len(G.沪深A股)}, 沪深指数:{len(G.沪深指数)}, 沪深基金:{len(G.沪深基金)},")
 
-arr1t1, arrt12 = get_mmap(FILE_1t, DTYPE_STOCK_1t, TOTAL_1t, readonly=False)
+d1t1, d1t2 = get_mmap(FILE_d1t, DTYPE_STOCK_1t, TOTAL_1t, readonly=False)
 
 # 索引上的名字，在to_records时会用到,所以这里要剔除
 columns = list(DTYPE_STOCK_1t.names)[1:]
@@ -48,7 +48,7 @@ def func(datas):
     if len(d) > 0:
         df = ticks_to_dataframe(d, now=now_ms, index_name='stock_code', level=5,
                                 depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=1)
-        start, end, step = update_array(arr1t1, arrt12, df[columns])
+        start, end, step = update_array2(d1t1, d1t2, df[columns], index=True)
         step_ += step
         end_ = end
     # =======================
@@ -56,32 +56,33 @@ def func(datas):
     if len(d) > 0:
         df = ticks_to_dataframe(d, now=now_ms, index_name='stock_code', level=5,
                                 depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=0)
-        start, end, step = update_array(arr1t1, arrt12, df[columns])
+        start, end, step = update_array2(d1t1, d1t2, df[columns], index=True)
         step_ += step
         end_ = end
     # =======================
     if step_ > 0:
-        t = arr1t1[end_ - 1]['time'] / 1000
+        t = d1t1[end_ - 1]['time'] / 1000
+        # 这里没有必要refresh这么快
+        pbar.set_description(f"延时 {now - t:8.3f}s", refresh=False)
         pbar.update(step_)
-        pbar.set_description(f"延时 {now - t:8.3f}s")
 
 
 if __name__ == "__main__":
     print("=" * 60)
     print("启动前请先同步网络时间")
-    print(f"当前指针：{arrt12[0]}")
+    print(f"当前指针：{d1t2[0]}")
     print('注意：仅在早上开盘前**重置文件指针**，用于覆盖昨天旧数据。盘中使用会导致今日已收数据被覆盖')
     code1 = generate_code(4)
     code2 = input_with_timeout(f"20秒內输入验证码重置文件指针({code1}/回车忽略)：", timeout=20)
     if code2 == code1:
-        arrt12[0] = 0
+        d1t2[0] = 0
         print("!!!重置文件指针成功!!!")
     print()
     print("开始订阅行情，**输入`:q`退出**")
     print()
 
     bar_format = "{desc}: {percentage:5.2f}%|{bar}{r_bar}"
-    pbar = tqdm(total=TOTAL_1t, desc="股票+指数", initial=int(arrt12[0]), bar_format=bar_format, ncols=100)
+    pbar = tqdm(total=TOTAL_1t, desc="股票+指数", initial=int(d1t2[0]), bar_format=bar_format, ncols=100)
 
     req = xtdata.subscribe_whole_quote(["SH", "SZ"], func)
 

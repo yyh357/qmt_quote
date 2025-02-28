@@ -3,7 +3,7 @@ from loguru import logger
 from xtquant.xttrader import XtQuantTrader, XtQuantTraderCallback
 from xtquant.xttype import StockAccount
 
-from examples.config import FILE_1d, TOTAL_1d
+from examples.config import FILE_d1d, TOTAL_1d
 from qmt_quote.dtypes import DTYPE_STOCK_1m
 from qmt_quote.memory_map import get_mmap
 from qmt_quote.utils_trade import to_dict, objs_to_dataframe, send_orders, cancel_orders, before_market_open, before_send_orders
@@ -12,7 +12,7 @@ pd.set_option('display.width', 1000)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', None)
 
-arr1d1, arr1d2 = get_mmap(FILE_1d, DTYPE_STOCK_1m, TOTAL_1d, readonly=True)
+arr1d1, arr1d2 = get_mmap(FILE_d1d, DTYPE_STOCK_1m, TOTAL_1d, readonly=True)
 
 G = Exception()
 details = before_market_open(G)

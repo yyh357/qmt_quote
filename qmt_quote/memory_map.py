@@ -134,7 +134,7 @@ def get_mmap(filename: str, dtype: np.dtype, count: int, readonly: bool = True, 
     return arr1, arr2
 
 
-def update_array(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame) -> Tuple[int, int, int]:
+def update_array2(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame, index: bool = True) -> Tuple[int, int, int]:
     """将DataFrame数据更新到内存映射文件中
 
     Parameters
@@ -145,6 +145,8 @@ def update_array(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame) -> Tuple[
         索引文件
     df : pd.DataFrame
         DataFrame数据
+    index : bool
+        是否包含索引
 
     Returns
     -------
@@ -152,9 +154,40 @@ def update_array(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame) -> Tuple[
         最后一行，数据行数，新的行数
 
     """
-    arr = df.to_records(index=True)
+    arr = df.to_records(index=index)
 
     start = arr2[0]
+    step = len(arr)
+    end = start + step
+    arr1[start:end] = arr
+    arr2[0] = end
+    # arr2.flush()
+    return int(start), int(end), step
+
+
+def update_array1(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame, index: bool = True) -> Tuple[int, int, int]:
+    """将DataFrame数据更新到内存映射文件中
+
+    Parameters
+    ----------
+    arr1 : np.ndarray
+        内存映射文件
+    arr2 : np.ndarray
+        索引文件
+    df : pd.DataFrame
+        DataFrame数据
+    index : bool
+        是否包含索引
+
+    Returns
+    -------
+    Tuple[int, int, int]
+        最后一行，数据行数，新的行数
+
+    """
+    arr = df.to_records(index=index)
+
+    start = 0
     step = len(arr)
     end = start + step
     arr1[start:end] = arr

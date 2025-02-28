@@ -16,10 +16,14 @@ TOTAL_1d = TOTAL_ASSET
 TOTAL_1t = TICKS_PER_MINUTE * 60 * 4  # 60分钟*4个小时
 
 # TODO: 文件名，根据实际情况修改为自己的文件名。可放到内存盘
-FILE_1t = r"M:\1t"
-FILE_1m = r"M:\1m"
-FILE_5m = r"M:\5m"
-FILE_1d = r"M:\1d"
+# 数据
+FILE_d1t = r"M:\d1t"
+FILE_d1m = r"M:\d1m"
+FILE_d5m = r"M:\d5m"
+FILE_d1d = r"M:\d1d"
+# 信号
+FILE_s1t = r"M:\s1t"
+FILE_s1d = r"M:\s1d"
 
 # TODO: 历史数据文件
 HISTORY_STOCK_1d = r"F:\stock_1d.parquet"

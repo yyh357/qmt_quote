@@ -120,7 +120,7 @@ def ticks_to_day(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def minute_1m_to_5m(df: pl.DataFrame, every: str = "5m", closed: str = "right", label: str = "right") -> pl.DataFrame:
+def convert_1m_to_5m(df: pl.DataFrame, every: str = "5m", closed: str = "right", label: str = "right") -> pl.DataFrame:
     """1分钟线转5分钟线
 
     Parameters

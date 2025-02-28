@@ -1,6 +1,6 @@
 from loguru import logger
 
-from config import FILE_1t, FILE_1m
+from config import FILE_d1t
 from qmt_quote.memory_map import mmap_truncate
 from qmt_quote.utils import generate_code
 
@@ -16,10 +16,8 @@ if __name__ == "__main__":
             break
         if code1 == code2:
             try:
-                mmap_truncate(FILE_1t, reserve=20000)
-                mmap_truncate(FILE_1m, reserve=10000)
+                mmap_truncate(FILE_d1t, reserve=20000)
+                break
             except PermissionError:
-                logger.error("归档失败!!!请关闭其他占用内存映射文件的程序后重试")
+                logger.error("归档失败!!!请关闭其他占用内存映射文件的程序后重试 {}", FILE_d1t)
                 continue
-
-            break

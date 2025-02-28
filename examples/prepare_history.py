@@ -5,7 +5,7 @@ from loguru import logger
 from xtquant import xtdata
 
 from examples.config import HISTORY_STOCK_1d, HISTORY_INDEX_1d, HISTORY_STOCK_1m, DATA_DIR, HISTORY_STOCK_5m
-from qmt_quote.utils_bar import minute_1m_to_5m
+from qmt_quote.bars.agg import convert_1m_to_5m
 from qmt_quote.utils_qmt import get_local_data_wrap
 
 # 开盘前需要先更新板块数据，因为会有新股上市
@@ -41,7 +41,7 @@ def save_1m(start_time, end_time):
 def save_5m():
     period = '5m'
     df = pl.read_parquet(HISTORY_STOCK_1m).filter(pl.col('stock_code') == '000001.SZ')
-    df = minute_1m_to_5m(df, period, closed="right", label="right")
+    df = convert_1m_to_5m(df, period, closed="right", label="right")
     df.write_parquet(HISTORY_STOCK_5m)
     print('沪深A股_5m===========')
     print(df)

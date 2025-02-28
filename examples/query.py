@@ -19,16 +19,16 @@ import pandas as pd
 import polars as pl
 from loguru import logger
 
-from examples.config import FILE_1m, FILE_1d, TOTAL_1m, TOTAL_1d, HISTORY_STOCK_1d, HISTORY_STOCK_1m, TICKS_PER_MINUTE, FILE_5m, TOTAL_5m, HISTORY_STOCK_5m, FILE_1t, TOTAL_1t
+from examples.config import FILE_d1m, FILE_d1d, TOTAL_1m, TOTAL_1d, TICKS_PER_MINUTE, FILE_d5m, TOTAL_5m, FILE_d1t, TOTAL_1t
 from factor_calc import main
 from qmt_quote.dtypes import DTYPE_STOCK_1m, DTYPE_STOCK_1t
 from qmt_quote.memory_map import get_mmap, SliceUpdater
 from qmt_quote.utils import arr_to_pl, calc_factor1, concat_interday
 
-arr1t1, arr1t2 = get_mmap(FILE_1t, DTYPE_STOCK_1t, TOTAL_1t, readonly=True)
-arr1d1, arr1d2 = get_mmap(FILE_1d, DTYPE_STOCK_1m, TOTAL_1d, readonly=True)
-arr1m1, arr1m2 = get_mmap(FILE_1m, DTYPE_STOCK_1m, TOTAL_1m, readonly=True)
-arr5m1, arr5m2 = get_mmap(FILE_5m, DTYPE_STOCK_1m, TOTAL_5m, readonly=True)
+arr1t1, arr1t2 = get_mmap(FILE_d1t, DTYPE_STOCK_1t, TOTAL_1t, readonly=True)
+arr1d1, arr1d2 = get_mmap(FILE_d1d, DTYPE_STOCK_1m, TOTAL_1d, readonly=True)
+arr1m1, arr1m2 = get_mmap(FILE_d1m, DTYPE_STOCK_1m, TOTAL_1m, readonly=True)
+arr5m1, arr5m2 = get_mmap(FILE_d5m, DTYPE_STOCK_1m, TOTAL_5m, readonly=True)
 
 # 约定df1存1分钟数据，df2存日线数据
 slice_1d = SliceUpdater(min1=TOTAL_1d, overlap_ratio=3, step_ratio=30)
@@ -39,39 +39,6 @@ slice_5m = SliceUpdater(min1=TICKS_PER_MINUTE * 5, overlap_ratio=3, step_ratio=3
 pd.set_option('display.width', 1000)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', None)
-
-
-def load_history_data():
-    # 历史日线，只设置一次，当天不再更新
-    his_stk_1d = (
-        pl.read_parquet(HISTORY_STOCK_1d)
-        .filter(pl.col('suspendFlag') == 0)
-        .with_columns(
-            pl.col('open', 'high', 'low', 'close', 'preClose').cast(pl.Float32),
-            pl.col('volume').cast(pl.UInt64),
-        )
-    )
-
-    # 历史分钟线，只设置一次，当天不再更新
-    his_stk_1m = (
-        pl.read_parquet(HISTORY_STOCK_1m)
-        .filter(pl.col('suspendFlag') == 0)
-        .with_columns(
-            pl.col('open', 'high', 'low', 'close', 'preClose').cast(pl.Float32),
-            pl.col('volume').cast(pl.UInt64),
-        )
-    )
-    # 历史5分钟线，只设置一次，当天不再更新
-    his_stk_5m = (
-        pl.read_parquet(HISTORY_STOCK_5m)
-        .filter(pl.col('suspendFlag') == 0)
-        .with_columns(
-            pl.col('open', 'high', 'low', 'close', 'preClose').cast(pl.Float32),
-            pl.col('volume').cast(pl.UInt64),
-        )
-    )
-    return his_stk_1d, his_stk_1m, his_stk_5m
-
 
 # 仅当日
 his_stk_1d, his_stk_1m, his_stk_5m = None, None, None
@@ -115,7 +82,7 @@ if __name__ == "__main__":
         df = calc_factor1(df)
         df = main(df)
         logger.info("==================")
-        # print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
+        print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
 
         logger.info("日线==================")
         arr = arr1d1[slice_1d.for_all()]
@@ -125,7 +92,7 @@ if __name__ == "__main__":
         df = calc_factor1(df)
         df = main(df)
         logger.info("==================")
-        # print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
+        print(df.filter(pl.col('stock_code') == '000001.SZ').to_pandas())
 
         logger.info("5分钟==================")
         arr = arr5m1[slice_5m.for_all()]
