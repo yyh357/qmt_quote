@@ -82,7 +82,7 @@ if __name__ == "__main__":
     print()
 
     bar_format = "{desc}: {percentage:5.2f}%|{bar}{r_bar}"
-    pbar = tqdm(total=TOTAL_1t, desc="股票+指数", initial=int(d1t2[0]), bar_format=bar_format, ncols=100)
+    pbar = tqdm(total=len(d1t1), desc="股票+指数", initial=int(d1t2[0]), bar_format=bar_format, ncols=100)
 
     req = xtdata.subscribe_whole_quote(["SH", "SZ"], func)
 

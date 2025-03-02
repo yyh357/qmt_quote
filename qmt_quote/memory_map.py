@@ -165,7 +165,7 @@ def update_array2(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame, index: b
     return int(start), int(end), step
 
 
-def update_array1(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame, index: bool = True) -> Tuple[int, int, int]:
+def update_array0(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame, index: bool = True) -> Tuple[int, int, int]:
     """将DataFrame数据更新到内存映射文件中
 
     Parameters

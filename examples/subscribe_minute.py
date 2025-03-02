@@ -7,6 +7,8 @@
 用户可以定制此代码
 
 可盘中开启，会重新转换
+
+本项目一定要开启，因为实盘策略利用它生成的日线数据下单
 """
 import time
 from datetime import datetime
@@ -34,7 +36,7 @@ if __name__ == "__main__":
     print()
 
     bar_format = "{desc}: {percentage:5.2f}%|{bar}{r_bar}"
-    pbar = tqdm(total=TOTAL_1t, desc="股票+指数", initial=0, bar_format=bar_format, ncols=100)
+    pbar = tqdm(total=len(d1t1), desc="股票+指数", initial=0, bar_format=bar_format, ncols=100)
 
     bm_d1d = BarManagerD(d1d1, d1d2)
     bm_d1m = BarManagerM(d1m1, d1m2)

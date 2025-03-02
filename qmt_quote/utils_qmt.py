@@ -69,7 +69,7 @@ def load_history_data(path) -> pl.DataFrame:
     return df
 
 
-def last_factor(arr: np.ndarray, his: pl.DataFrame = None, filter_time: int = 0, func=None) -> pl.DataFrame:
+def last_factor(arr: np.ndarray, his: pl.DataFrame = None, filter_time: float = 0, func=None) -> pl.DataFrame:
     """获取最终因子值
 
     Parameters

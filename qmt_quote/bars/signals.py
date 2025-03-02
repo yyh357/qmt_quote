@@ -6,17 +6,19 @@
 2. 按日线一天一条存。取数据时全取即可，数据量也不大
 3. 按分钟线存。相当于记录了历史，但只要数据和算法不变就能还原
 
-留了两个字段，用户可根据需要选择对应字段使用
+留了3个字段，用户可根据需要选择对应字段使用
+
+多加了一个策略ID字段，方便在策略中区分不同的信号
 
 """
-import os
-
-os.environ['NUMBA_DISABLE_JIT'] = '1'
+# import os
+#
+# os.environ['NUMBA_DISABLE_JIT'] = '1'
 import os
 from typing import Tuple
 
 import numpy as np
-from numba import uint64, float32, typeof, int32, boolean
+from numba import uint64, float32, typeof, int32, boolean, int16
 from numba.experimental import jitclass
 from numba.typed.typeddict import Dict
 
@@ -27,6 +29,7 @@ class Bar:
     def __init__(self):
         self.time: int = 0  # 当前bar时间戳
         self.index: int = 0
+        self.strategy_id: int = 0  # 策略ID
         self.open_dt: int = 0
         self.close_dt: int = 0
         self.float32: float = 0.
@@ -38,6 +41,7 @@ class Bar:
         """
         arr['stock_code'] = stock_code
         arr['time'] = self.time
+        arr['strategy_id'] = self.strategy_id
         arr['open_dt'] = self.open_dt
         arr['close_dt'] = self.close_dt
         arr['float32'] = self.float32
@@ -54,6 +58,7 @@ class Bar:
             self.time = time
             is_new = True
             self.open_dt = signal['time']
+            self.strategy_id = signal['strategy_id']
         else:
             is_new = False
 
@@ -69,6 +74,7 @@ if os.environ.get('NUMBA_DISABLE_JIT', '0') != '1':
     spec = [
         ('index', uint64),
         ('time', uint64),
+        ('strategy_id', int16),
         ('open_dt', uint64),
         ('close_dt', uint64),
         ('float32', float32),
@@ -81,11 +87,11 @@ if os.environ.get('NUMBA_DISABLE_JIT', '0') != '1':
 class BarManager:
 
     def __init__(self, arr1: np.ndarray, arr2: np.ndarray):
-        # tmp = Dict()
-        # tmp['600000.SH'] = Bar()
-        # tmp.clear()
-        # self.bars = tmp
-        self.bars = dict()
+        tmp1 = Dict()
+        tmp1[('600000.SH', -1)] = Bar()
+        tmp1.clear()
+        self.bars = tmp1
+        # self.bars = dict()
 
         self.index: int = 0
         self.arr1 = arr1
@@ -107,11 +113,12 @@ class BarManager:
             # TODO 时间戳请选用特别的格式
             time = get_label(s['time'] // 1000, get_label_arg1) * 1000
             stock_code = str(s['stock_code'])
-            not_in = stock_code not in self.bars
+            key = stock_code, int(s['strategy_id'])
+            not_in = key not in self.bars
             if not_in:
-                self.bars[stock_code] = Bar()
+                self.bars[key] = Bar()
 
-            bb = self.bars[stock_code]
+            bb = self.bars[key]
             if bb.update(s, time):
                 bb.index = self.index
                 self.index += 1
@@ -123,7 +130,7 @@ class BarManager:
 
 if os.environ.get('NUMBA_DISABLE_JIT', '0') != '1':
     tmp1 = Dict()
-    tmp1['600000.SH'] = Bar()
+    tmp1[('600000.SH', -1)] = Bar()
     tmp1.clear()
 
     idx_type = typeof(np.empty(64, dtype=np.uint64))

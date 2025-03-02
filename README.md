@@ -38,3 +38,22 @@
 ## 技巧
 
 1. 运行`run_tick.bat`后非常担心不小心将窗口关闭。`Windows Terminal`可以再开一个选项卡，这样多个选项卡关闭时会提示
+
+## 安装
+
+此文件一般已经放到了用户的项目目录下了，但`qmt_quote`由于过于简单，并没有发布到pypi。
+有两种方式可以使用，选用一种即可。
+
+1. 手动添加到sys.path中，简单粗暴。但代码运行中才添加，所以IDE无法识别会有警告
+
+```
+import sys
+sys.path.insert(0, r"D:\GitHub\qmt_quote")
+```
+
+2. 到`D:\Users\Kan\miniconda3\envs\py312\Lib\site-packages`目录下，
+   新建一个`qmt_quote.pth`文件，IDE可识别，内容为：
+
+```
+D:\GitHub\qmt_quote
+```
