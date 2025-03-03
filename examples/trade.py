@@ -4,6 +4,7 @@ from xtquant.xttype import StockAccount
 
 from examples.config import FILE_d1d, TOTAL_1d
 from qmt_quote.dtypes import DTYPE_STOCK_1m
+from qmt_quote.enums import SizeType
 from qmt_quote.memory_map import get_mmap
 from qmt_quote.trader_callback import MyXtQuantTraderCallback
 from qmt_quote.utils_trade import to_dict, objs_to_dataframe, cancel_orders, before_market_open, send_orders_1, send_orders_2, send_orders_3, send_orders_4
@@ -22,12 +23,13 @@ if __name__ == "__main__":
     print("demo test")
     # path为mini qmt客户端安装目录下userdata_mini路径
     path = rf"D:\e海方舟-量化交易版\userdata_mini"
-    # path = rf"D:\迅投极速交易终端 睿智融科版\userdata_mini"
+    path = rf"D:\迅投极速交易终端 睿智融科版\userdata_mini"
     # session_id为会话编号，策略使用方对于不同的Python策略需要使用不同的会话编号
     session_id = 123456
     xt_trader = XtQuantTrader(path, session_id)
     # 创建资金账号为1000000365的证券账号对象
-    acc = StockAccount("1300290817")
+    acc = StockAccount("290817")
+    acc = StockAccount("2025727")
     # 创建交易回调类对象，并声明接收回调
     callback = MyXtQuantTraderCallback()
     xt_trader.register_callback(callback)
@@ -71,17 +73,13 @@ if __name__ == "__main__":
             print(df)
             continue
         if choice == "5":
-            df = send_orders_1(xt_trader, acc, details, d1d1=d1d1, d1d2=d1d2)
-            df['size'] = 3000
-            df = send_orders_2(xt_trader, acc, df, 'Value')
-            df = send_orders_3(df, 1, 1, False)
-            # df = df.loc[['688238.SH']]
-            df = send_orders_4(xt_trader, acc, df, 'ss', 'bb', True)
+            order_remark = input("请输入order_remark:")
 
-            # order_remark = input("请输入order_remark:")
-            # stock_list = ['600000.SH', '000001.SZ', '000638.SZ', '002750.SZ']
-            # df = send_orders_0(xt_trader, acc, details, d1d1=d1d1, d1d2=d1d2)
-            # df['is_buy'] = True
-            # df['quantity'] = 200
-            # df = df.loc[stock_list]
-            # send_orders(xt_trader, acc, df.reset_index(), -1, -5, False, "手动", order_remark, debug=False)
+            df = send_orders_1(xt_trader, acc, details, d1d1=d1d1, d1d2=d1d2)
+            # 等市值买入
+            stock_list = ['600000.SH', '000001.SZ', '000638.SZ', '002750.SZ']
+            df.loc[stock_list, 'size'] = 1
+
+            df = send_orders_2(xt_trader, acc, df, SizeType.TargetValueScale)
+            df = send_orders_3(df, -1, -10, False)
+            df = send_orders_4(xt_trader, acc, df, 'A', order_remark, debug=False)

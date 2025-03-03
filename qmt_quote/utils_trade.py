@@ -6,6 +6,7 @@ from numba import njit
 from xtquant import xtconstant, xtdata
 from xtquant.xtconstant import *  # noqa
 
+from qmt_quote.enums import SizeType
 from qmt_quote.utils_qmt import get_instrument_detail_wrap
 
 
@@ -179,7 +180,7 @@ def adjust_quantity(is_buy: bool, is_kcb: bool, quantity: int,
     非科创板：买入时，数量向下取整到 100 的整数倍；卖出时，数量向上取整到 100 的整数倍
 
     """
-    print(quantity)
+    # print(quantity)
     if is_buy:
         if is_kcb:
             # 科创板：单笔申报数量不小于200股，以1股为单位递增
@@ -209,7 +210,7 @@ def adjust_quantity(is_buy: bool, is_kcb: bool, quantity: int,
             else:
                 quantity = 0
 
-    return quantity
+    return min(quantity, 1000000)
 
 
 def cancel_orders(trader, account, orders: pd.DataFrame,
@@ -359,8 +360,11 @@ def send_orders_1(trader, account, details, d1d1, d1d2):
 
     """
     # 从内存映射文件中读取日线数据，内有买卖一价
-    ticks = pd.DataFrame(d1d1[:int(d1d2[0])]).set_index('stock_code')
-    ticks.rename(columns={'close': 'lastPrice', 'preClose': 'lastClose'}, inplace=True)
+    end = int(d1d2[0])
+    assert end > 0, 'No data in memory mapping file.'
+    ticks = pd.DataFrame(d1d1[:end]).set_index('stock_code')
+    # volume与Position中重名，所以改一下。其他名字与get_full_tick相同
+    ticks.rename(columns={'close': 'lastPrice', 'preClose': 'lastClose', 'volume': 'VOLUME'}, inplace=True)
     # 合并涨跌停
     df = pd.merge(details, ticks, left_index=True, right_index=True, how='left')
     # 获取可卖出持仓数量
@@ -370,12 +374,86 @@ def send_orders_1(trader, account, details, d1d1, d1d2):
             positions = objs_to_dataframe(positions).set_index('stock_code')
             df = pd.merge(df, positions, left_index=True, right_index=True, how='left')
             df['can_use_volume'] = df['can_use_volume'].fillna(0).astype(int)
-        else:
-            df['can_use_volume'] = 0
-    else:
+            df['volume'] = df['volume'].fillna(0).astype(int)
+
+    if 'can_use_volume' not in df.columns:
         df['can_use_volume'] = 0
+    if 'volume' not in df.columns:
+        df['volume'] = 0
 
     return df
+
+
+def send_orders_2(trader, account, orders: pd.DataFrame, size_type: SizeType) -> pd.DataFrame:
+    """下单前准备工作第2步
+
+    1. 委托量计算
+    2. 方向计算
+    
+    Parameters
+    ----------
+    trader
+    account
+    orders: pd.DataFrame
+        - stock_code:str (required)
+        - is_kcb:bool (required)
+        - price:float (required)
+        - can_use_volume:int (required)
+        - quantity:int (required)
+        - is_buy:bool (required)
+    size_type:str
+
+    
+    Returns
+    -------
+    pd.DataFrame
+        - quantity:int (required)
+        
+    Notes
+    -----
+    算目标市值是用的最新价然后倒推的所需要手数
+    但冻结资金是柜台按报单价算的，如果按涨停价报，报单量可能要缩减，防止资金不足
+
+    计算可平仓数量时，需要持仓量数据
+
+    References
+    ----------
+    https://github.com/wukan1986/LightBT/blob/main/lightbt/portfolio.py#L283
+    
+    """
+    # 查可用资金
+    asset = to_dict(trader.query_stock_asset(account))
+    total_asset = asset['total_asset']
+
+    orders['size'] = orders['size'].fillna(0)
+    orders['volume'] = orders['volume'].fillna(0)
+    orders['lastPrice'] = orders['lastPrice'].fillna(0)
+
+    if size_type == SizeType.TargetValueScale:
+        orders['size'] = orders['size'] / orders['size'].abs().sum()
+        size_type = SizeType.TargetValuePercent
+    if size_type == SizeType.TargetValuePercent:
+        orders['size'] = orders['size'] * total_asset
+        size_type = SizeType.TargetValue
+
+    if size_type == SizeType.TargetValue:
+        orders['size'] = orders['size'] - orders['lastPrice'] * orders['volume']
+        size_type = SizeType.Value
+
+    if size_type == SizeType.TargetAmount:
+        # 这里不考虑可平手数
+        orders['size'] = orders['size'] - orders['volume']
+        size_type = SizeType.Amount
+
+    if size_type == SizeType.Value:
+        orders['size'] = orders['size'] / orders['lastPrice']
+        size_type = SizeType.Amount
+
+    if size_type == SizeType.Amount:
+        orders['is_buy'] = orders['size'] >= 0
+        orders['size'] = orders['size'].abs()
+
+    return orders
 
 
 def send_orders_3(orders: pd.DataFrame, priority: int, offset: int, is_auction: bool) -> pd.DataFrame:
@@ -420,52 +498,6 @@ def send_orders_3(orders: pd.DataFrame, priority: int, offset: int, is_auction: 
     return orders
 
 
-def send_orders_2(trader, account, orders: pd.DataFrame, size_type: str) -> pd.DataFrame:
-    """下单前准备工作第2步
-
-    1. 委托量计算
-    2. 方向计算
-    
-    Parameters
-    ----------
-    trader
-    account
-    orders: pd.DataFrame
-        - stock_code:str (required)
-        - is_kcb:bool (required)
-        - price:float (required)
-        - can_use_volume:int (required)
-        - quantity:int (required)
-        - is_buy:bool (required)
-    size_type:str
-
-    
-    Returns
-    -------
-    pd.DataFrame
-        - quantity:int (required)
-        
-    Notes
-    -----
-    算目标市值是用的最新价然后倒推的所需要手数
-    但冻结资金是柜台按报单价算的，如果按涨停价报，报单量可能要缩减，防止资金不足
-    
-    
-    """
-    # 查可用资金
-    asset = to_dict(trader.query_stock_asset(account))
-
-    if size_type == 'Value':
-        orders['size'] = orders['size'] / orders['lastPrice']
-        size_type = 'Amount'
-
-    if size_type == 'Amount':
-        orders['is_buy'] = orders['size'] >= 0
-        orders['size'] = orders['size'].abs()
-
-    return orders
-
-
 def send_orders_4(trader, account, orders: pd.DataFrame, strategy_name: str, order_remark: str, debug: bool = True) -> pd.DataFrame:
     """下单第4步
 
@@ -498,17 +530,22 @@ def send_orders_4(trader, account, orders: pd.DataFrame, strategy_name: str, ord
         - order_volume
 
     """
+    # 过滤掉不交易的
+    orders = orders[orders['size'] > 0].copy()
+    if orders.empty:
+        return orders
 
     orders['order_type'] = np.where(orders['is_buy'], xtconstant.STOCK_BUY, xtconstant.STOCK_SELL)
     # 委托量调整
     orders['order_volume'] = orders.apply(lambda x: adjust_quantity(x.is_buy, x.is_kcb, x['size'], x.can_use_volume, tolerance=10), axis=1)
+    # 过滤掉不交易的
+    orders = orders[orders['order_volume'] > 0].copy()
     orders['seq'] = 0
     orders.reset_index(inplace=True)
     for i, v in orders.iterrows():
-        if v.order_volume == 0:
-            continue
         if debug:
-            print(f'{v.stock_code=}, {v.is_buy=}, {v.price=}, {v.order_volume=}, {strategy_name=}, {order_remark=}')
+            value = v.price * v.order_volume
+            print(f'stock_code={v.stock_code},is_buy={v.is_buy},price={v.price},order_volume={v.order_volume},{strategy_name=},{order_remark=},{value=}')
         else:
             orders.loc[i, 'seq'] = trader.order_stock_async(account, v.stock_code, v.order_type, v.order_volume, xtconstant.FIX_PRICE, v.price, strategy_name, order_remark)
     return orders
