@@ -109,7 +109,6 @@ class Bar:
 
 if os.environ.get('NUMBA_DISABLE_JIT', '0') != '1':
     spec = [
-        ('include_quote', boolean),
         ('index', uint64),
         ('time', uint64),
         ('open_dt', uint64),
@@ -143,8 +142,8 @@ class BarManager:
         self.bars = tmp
 
         self.index: int = 0
-        self.arr1 = arr1
-        self.arr2 = arr2
+        self.arr1: np.ndarray = arr1
+        self.arr2: np.ndarray = arr2
 
     def reset(self):
         self.bars.clear()

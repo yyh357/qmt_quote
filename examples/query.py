@@ -22,6 +22,7 @@ from loguru import logger
 from examples.config import FILE_d1m, FILE_d1d, TOTAL_1m, TOTAL_1d, TICKS_PER_MINUTE, FILE_d5m, TOTAL_5m, FILE_d1t, TOTAL_1t
 from factor_calc import main
 from qmt_quote.dtypes import DTYPE_STOCK_1m, DTYPE_STOCK_1t
+from qmt_quote.enums import InstrumentType
 from qmt_quote.memory_map import get_mmap, SliceUpdater
 from qmt_quote.utils import arr_to_pl, calc_factor1, concat_interday
 
@@ -76,7 +77,7 @@ if __name__ == "__main__":
 
         logger.info("1分钟==================")
         arr = arr1m1[slice_1m.for_all()]
-        arr = arr[arr['type'] == 1]  # 过滤掉指数，只处理股票
+        arr = arr[arr['type'] == InstrumentType.Stock]  # 过滤掉指数，只处理股票
         df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
         df = concat_interday(his_stk_1m, df)
         df = calc_factor1(df)
@@ -86,7 +87,7 @@ if __name__ == "__main__":
 
         logger.info("日线==================")
         arr = arr1d1[slice_1d.for_all()]
-        arr = arr[arr['type'] == 1]
+        arr = arr[arr['type'] == InstrumentType.Stock]
         df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
         df = concat_interday(his_stk_1d, df)
         df = calc_factor1(df)

@@ -20,7 +20,7 @@ from qmt_quote.dtypes import DTYPE_STOCK_1m
 
 class Bar:
     def __init__(self, pre_close: float, include_quote: bool):
-        self.include_quote = include_quote
+        self.include_quote: bool = include_quote
         self.close: float = pre_close
         self.pre_close: float = 0.
         self.pre_amount: float = 0.
@@ -242,9 +242,9 @@ class BarManager:
         self.bars = tmp
 
         self.index: int = 0
-        self.arr1 = arr1
-        self.arr2 = arr2
-        self.include_quote = include_quote
+        self.arr1: np.ndarray = arr1
+        self.arr2: np.ndarray = arr2
+        self.include_quote: bool = include_quote
 
     def reset(self):
         self.bars.clear()

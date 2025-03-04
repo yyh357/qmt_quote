@@ -1,4 +1,5 @@
 import math
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -6,7 +7,8 @@ from numba import njit
 from xtquant import xtconstant, xtdata
 from xtquant.xtconstant import *  # noqa
 
-from qmt_quote.enums import SizeType
+from qmt_quote.enums import SizeType, BoardType
+from qmt_quote.utils import get_board_type
 from qmt_quote.utils_qmt import get_instrument_detail_wrap
 
 
@@ -73,7 +75,7 @@ def adjust_price_1(is_buy: bool, priority: int, offset: int,
 
 
 @njit
-def adjust_price_2(is_buy: bool, price: float,
+def adjust_price_2(is_buy: bool, board_type: BoardType, price: float,
                    bid_1: float, ask_1: float,
                    last_price: float = 0.0, pre_close: float = 0.0,
                    tick: float = 0.01) -> float:
@@ -85,6 +87,7 @@ def adjust_price_2(is_buy: bool, price: float,
     Parameters
     ----------
     is_buy:bool
+    board_type
     price
         申报价格
     bid_1
@@ -104,13 +107,32 @@ def adjust_price_2(is_buy: bool, price: float,
         调整后的价格
 
     """
+    is_kcb = board_type == BoardType.KCB
+    is_bj = board_type == BoardType.BJ
+    is_cyb = board_type == BoardType.CYB
+
     tick10 = tick * 10
+
     if is_buy:
         base = ask_1 or bid_1 or last_price or pre_close
-        return min(max(base * 1.02, base + tick10), price)
     else:
         base = bid_1 or ask_1 or last_price or pre_close
-        return max(min(base * 0.98, base - tick10), price)
+
+    if is_kcb or is_cyb:
+        if is_buy:
+            return min(base * 1.02, price)
+        else:
+            return max(base * 0.98, price)
+    elif is_bj:
+        if is_buy:
+            return min(max(base * 1.05, base + tick10), price)
+        else:
+            return max(min(base * 0.95, base - tick10), price)
+    else:
+        if is_buy:
+            return min(max(base * 1.02, base + tick10), price)
+        else:
+            return max(min(base * 0.98, base - tick10), price)
 
 
 @njit
@@ -151,7 +173,7 @@ def adjust_price_3(is_buy: bool, price: float,
         return min(max(limit_down, price), limit_up)
 
 
-def adjust_quantity(is_buy: bool, is_kcb: bool, quantity: int,
+def adjust_quantity(is_buy: bool, board_type: BoardType, quantity: int,
                     can_use_volume: int, tolerance: int = 10) -> int:
     """
     根据股票交易规则调整股票买卖数量
@@ -160,8 +182,8 @@ def adjust_quantity(is_buy: bool, is_kcb: bool, quantity: int,
     ----------
     is_buy:bool
         是否买入
-    is_kcb:bool
-        是否科创板
+    board_type: BoardType
+        股票板块类型
     quantity:int
         申报数量
     can_use_volume:int
@@ -180,7 +202,9 @@ def adjust_quantity(is_buy: bool, is_kcb: bool, quantity: int,
     非科创板：买入时，数量向下取整到 100 的整数倍；卖出时，数量向上取整到 100 的整数倍
 
     """
-    # print(quantity)
+    is_kcb = board_type == BoardType.KCB
+    is_cyb = board_type == BoardType.CYB
+
     if is_buy:
         if is_kcb:
             # 科创板：单笔申报数量不小于200股，以1股为单位递增
@@ -210,10 +234,18 @@ def adjust_quantity(is_buy: bool, is_kcb: bool, quantity: int,
             else:
                 quantity = 0
 
-    return min(quantity, 1000000)
+    # 不能超过最大下单数，否则报错
+    if is_kcb:
+        quantity = min(quantity, 100000)
+    elif is_cyb:
+        quantity = min(quantity, 300000)
+    else:
+        quantity = min(quantity, 1000000)
+
+    return quantity
 
 
-def cancel_orders(trader, account, orders: pd.DataFrame,
+def cancel_orders(trader, account, orders: Optional[pd.DataFrame] = None,
                   direction: int = 0,
                   strategy_name: str = None, order_remark: str = None,
                   do_async: bool = False) -> pd.DataFrame:
@@ -255,18 +287,21 @@ def cancel_orders(trader, account, orders: pd.DataFrame,
 
 
     """
-    if orders.empty:
-        return orders
-    if 'order_status' in orders.columns:
+    if orders is None:
+        orders = trader.query_stock_orders(account, cancelable_only=True)
+        orders = objs_to_dataframe(orders)
+    else:
         # 55部成 52部成待撤, 这两状态有什么区别
         orders = orders.query(f'(order_status==@ORDER_PART_SUCC) | (order_status<=@ORDER_PARTSUCC_CANCEL)')
 
+    if orders.empty:
+        return orders
+
     if direction != 0:
-        if 'direction' in orders.columns:
-            if direction > 0:
-                orders = orders.query(f'direction==@DIRECTION_FLAG_BUY')
-            elif direction < 0:
-                orders = orders.query(f'direction==@DIRECTION_FLAG_SELL')
+        if direction > 0:
+            orders = orders.query(f'direction==@DIRECTION_FLAG_BUY')
+        elif direction < 0:
+            orders = orders.query(f'direction==@DIRECTION_FLAG_SELL')
 
     if strategy_name is not None:
         orders = orders.query(f'strategy_name==@strategy_name')
@@ -310,15 +345,15 @@ def before_market_open(G):
     """
     # 先下载板块数据
     xtdata.download_sector_data()
+    # 没有 京市A股 沪深风险警示 沪深退市整理
+    xtdata.get_sector_list()
 
     G.沪深A股 = xtdata.get_stock_list_in_sector("沪深A股")
     G.科创板 = xtdata.get_stock_list_in_sector("科创板")
-    G.沪深风险警示 = xtdata.get_stock_list_in_sector("沪深风险警示")
-    G.沪深退市整理 = xtdata.get_stock_list_in_sector("沪深退市整理")
-    # print("沪深风险警示:", G.沪深风险警示)
-    # print("沪深退市整理:", G.沪深退市整理)
+    G.创业板 = xtdata.get_stock_list_in_sector("创业板")
+
     details = get_instrument_detail_wrap(G.沪深A股)
-    details['is_kcb'] = details.index.map(lambda x: x in set(G.科创板))
+    details['board_type'] = details.index.map(get_board_type)
     # 由于 沪深风险警示 沪深退市整理, 数据为空，只好从股票名字中获取
     details['is_st'] = details['InstrumentName'].str.contains('ST')
     details['is_delisting'] = details['InstrumentName'].str.contains('退')
@@ -337,7 +372,7 @@ def send_orders_1(trader, account, details, d1d1, d1d2):
     account
     details: pd.DataFrame
         - stock_code:str (required)
-        - is_kcb:bool (required)
+        - board_type:int (required)
         - DownStopPrice:float (required)
         - UpStopPrice:float (required)
     d1d1
@@ -376,6 +411,7 @@ def send_orders_1(trader, account, details, d1d1, d1d2):
             df['can_use_volume'] = df['can_use_volume'].fillna(0).astype(int)
             df['volume'] = df['volume'].fillna(0).astype(int)
 
+    # position为空，将重要地方补全，后面会用到
     if 'can_use_volume' not in df.columns:
         df['can_use_volume'] = 0
     if 'volume' not in df.columns:
@@ -396,7 +432,7 @@ def send_orders_2(trader, account, orders: pd.DataFrame, size_type: SizeType) ->
     account
     orders: pd.DataFrame
         - stock_code:str (required)
-        - is_kcb:bool (required)
+        - board_type:int (required)
         - price:float (required)
         - can_use_volume:int (required)
         - quantity:int (required)
@@ -491,7 +527,7 @@ def send_orders_3(orders: pd.DataFrame, priority: int, offset: int, is_auction: 
     orders['price'] = orders.apply(lambda x: adjust_price_1(x.is_buy, priority, offset, x.bidPrice_1, x.askPrice_1, x.lastPrice, x.lastClose, tick=0.01), axis=1)
     if not is_auction:
         # 价格笼子调整
-        orders['price'] = orders.apply(lambda x: adjust_price_2(x.is_buy, x.price, x.bidPrice_1, x.askPrice_1, x.lastPrice, x.lastClose, tick=0.01), axis=1)
+        orders['price'] = orders.apply(lambda x: adjust_price_2(x.is_buy, x.board_type, x.price, x.bidPrice_1, x.askPrice_1, x.lastPrice, x.lastClose, tick=0.01), axis=1)
     # 涨跌停调整
     orders['price'] = orders.apply(lambda x: adjust_price_3(x.is_buy, x.price, x.DownStopPrice, x.UpStopPrice, ndigits=100), axis=1)
 
@@ -510,7 +546,7 @@ def send_orders_4(trader, account, orders: pd.DataFrame, strategy_name: str, ord
     account
     orders: pd.DataFrame
         - stock_code:str (required)
-        - is_kcb:bool (required)
+        - board_type:int (required)
         - price:float (required)
         - can_use_volume:int (required)
         - size:float (required)
@@ -537,7 +573,7 @@ def send_orders_4(trader, account, orders: pd.DataFrame, strategy_name: str, ord
 
     orders['order_type'] = np.where(orders['is_buy'], xtconstant.STOCK_BUY, xtconstant.STOCK_SELL)
     # 委托量调整
-    orders['order_volume'] = orders.apply(lambda x: adjust_quantity(x.is_buy, x.is_kcb, x['size'], x.can_use_volume, tolerance=10), axis=1)
+    orders['order_volume'] = orders.apply(lambda x: adjust_quantity(x.is_buy, x.board_type, x['size'], x.can_use_volume, tolerance=10), axis=1)
     # 过滤掉不交易的
     orders = orders[orders['order_volume'] > 0].copy()
     orders['seq'] = 0

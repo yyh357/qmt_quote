@@ -31,3 +31,31 @@ class SizeTypeT(NamedTuple):
 
 
 SizeType = SizeTypeT()
+
+
+class InstrumentTypeT(NamedTuple):
+    Index: int = 0  # 指数
+    Stock: int = 1  # 股票
+    Fund: int = 2  # 基金
+    ETF: int = 3  # ETF
+
+
+InstrumentType = InstrumentTypeT()
+
+
+class BoardTypeT(NamedTuple):
+    # 未知
+    Unknown: int = 0
+    # 上海主板
+    SH: int = 1
+    # 深圳主板
+    SZ: int = 2
+    # 深圳创业板
+    CYB: int = 3
+    # 上海科创板
+    KCB: int = 4
+    # 北交所
+    BJ: int = 5
+
+
+BoardType = BoardTypeT()

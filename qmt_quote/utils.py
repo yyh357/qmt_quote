@@ -6,18 +6,21 @@ import queue
 import random
 import string
 import threading
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 import numpy as np
 import pandas as pd
 import polars as pl
+from numba import njit
 from polars import Expr
+
+from qmt_quote.enums import InstrumentType, BoardType
 
 
 def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
                        now: int, index_name: str = 'stock_code',
                        level: int = 0, depths=["askPrice", "bidPrice", "askVol", "bidVol"],
-                       type: int = -1,
+                       type: InstrumentType = -1,
                        ) -> pd.DataFrame:
     """字典嵌套字典 转 DataFrame
 
@@ -36,11 +39,7 @@ def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
     depths
         深度行情列名
     type:
-        类型。
-            'index'		#指数
-            'stock'		#股票
-            'fund'		#基金
-            'etf'		#ETF
+        类型
 
     Returns
     -------
@@ -102,7 +101,9 @@ def arr_to_pl(arr: np.ndarray, col: Expr = pl.col('time')) -> pl.DataFrame:
     return cast_datetime(pl.from_numpy(arr), col)
 
 
-def concat_intraday(df1: Optional[pl.DataFrame], df2: pl.DataFrame, by1: str = 'stock_code', by2: str = 'time', by3: str = 'duration') -> pl.DataFrame:
+def concat_intraday(df1: Optional[pl.DataFrame], df2: pl.DataFrame,
+                    by1: str = 'stock_code', by2: str = 'time',
+                    by3: str = 'duration') -> pl.DataFrame:
     """日内分钟合并，需要排除重复
 
     数据是分批到来的，所以合成K线也是分批的，但很有可能出现不完整的数据，用duration来排除重复数据,只选最大的
@@ -132,7 +133,7 @@ def concat_intraday(df1: Optional[pl.DataFrame], df2: pl.DataFrame, by1: str = '
     return df.sort(by1, by2, by3).unique(subset=[by1, by2], keep='last', maintain_order=True)
 
 
-def get_common_elements(list1, list2):
+def get_common_elements(list1: List[str], list2: List[str]) -> List[str]:
     """获取两个列表的共同元素，保持原始顺序"""
     # 使用集合找到共同元素
     common_set = set(list1) & set(list2)
@@ -214,12 +215,12 @@ def calc_factor2(df: pl.DataFrame,
     return df
 
 
-def generate_code(length=4):
+def generate_code(length: int = 4) -> str:
     """生成验证码"""
     return ''.join(random.sample(string.digits, k=length))
 
 
-def input_with_timeout(prompt, timeout=10):
+def input_with_timeout(prompt: str, timeout: int = 10) -> Optional[str]:
     """带有超时的用户输入函数"""
     print(prompt, end='', flush=True)
     user_input = queue.Queue()
@@ -243,3 +244,30 @@ def input_with_timeout(prompt, timeout=10):
     except queue.Empty:
         print()
         return None
+
+
+@njit
+def get_board_type(stock_code: str) -> int:
+    """获取股票板块类型
+    Parameters
+    ----------
+    stock_code:str
+        股票代码
+    Returns
+    -------
+    int
+        板块类型
+
+    """
+    if stock_code.startswith('60'):
+        return BoardType.SH
+    if stock_code.startswith('00'):
+        return BoardType.SZ
+    if stock_code.startswith('30'):
+        return BoardType.CYB
+    if stock_code.startswith('68'):
+        return BoardType.KCB
+    if stock_code.startswith('8') or stock_code.startswith('4') or stock_code.startswith('9'):
+        return BoardType.BJ
+
+    return BoardType.Unknown

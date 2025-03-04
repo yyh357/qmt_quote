@@ -77,9 +77,9 @@ if __name__ == "__main__":
 
             df = send_orders_1(xt_trader, acc, details, d1d1=d1d1, d1d2=d1d2)
             # 等市值买入
-            stock_list = ['600000.SH', '000001.SZ', '000638.SZ', '002750.SZ']
-            df.loc[stock_list, 'size'] = 1
+            stock_list = ['600000.SH', '000001.SZ', '000638.SZ', '002750.SZ', '688004.SH']
+            df.loc[stock_list, 'size'] = 0.05
 
-            df = send_orders_2(xt_trader, acc, df, SizeType.TargetValueScale)
+            df = send_orders_2(xt_trader, acc, df, SizeType.TargetValuePercent)
             df = send_orders_3(df, -1, -10, False)
-            df = send_orders_4(xt_trader, acc, df, 'A', order_remark, debug=False)
+            df = send_orders_4(xt_trader, acc, df, 'A', order_remark, debug=True)

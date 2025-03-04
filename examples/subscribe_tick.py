@@ -12,6 +12,7 @@ from xtquant import xtdata
 
 from examples.config import FILE_d1t, TOTAL_1t
 from qmt_quote.dtypes import DTYPE_STOCK_1t
+from qmt_quote.enums import InstrumentType
 from qmt_quote.memory_map import get_mmap, update_array2
 from qmt_quote.utils import ticks_to_dataframe, generate_code, input_with_timeout
 
@@ -40,14 +41,15 @@ def func(datas):
     # 获取当前时间转ms
     now = datetime.now().timestamp()
     now_ms = int(now * 1000)
-    # =======================
-    # TODO 这里的set可以替换成日线选股票池，减少股票数后处理速度更快
+
     step_ = 0
     end_ = 0
+    # =======================
+    # TODO 这里的set可以替换成日线选股票池，减少股票数后处理速度更快
     d = {k: v for k, v in datas.items() if k in G.沪深A股}
     if len(d) > 0:
         df = ticks_to_dataframe(d, now=now_ms, index_name='stock_code', level=5,
-                                depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=1)
+                                depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=InstrumentType.Stock)
         start, end, step = update_array2(d1t1, d1t2, df[columns], index=True)
         step_ += step
         end_ = end
@@ -55,7 +57,7 @@ def func(datas):
     d = {k: v for k, v in datas.items() if k in G.沪深指数}
     if len(d) > 0:
         df = ticks_to_dataframe(d, now=now_ms, index_name='stock_code', level=5,
-                                depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=0)
+                                depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=InstrumentType.Index)
         start, end, step = update_array2(d1t1, d1t2, df[columns], index=True)
         step_ += step
         end_ = end

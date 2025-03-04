@@ -67,7 +67,7 @@ def truncate_file_size(file_path: str, new_size: int) -> None:
         print(f"File {file_path} has been truncated from {old_size} to {new_size} bytes.")
 
 
-def mmap_truncate(filename: str, reserve: int = 10000):
+def mmap_truncate(filename: str, reserve: int = 10000) -> None:
     """截断内存映射文件
 
     Parameters
@@ -204,8 +204,6 @@ class SliceUpdater:
 
     Attributes
     ----------
-    df1 : pl.DataFrame
-        合并去重后的DataFrame
     start : int
         起始位置
     end : int

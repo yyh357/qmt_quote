@@ -40,7 +40,7 @@ def save_1m(start_time, end_time):
 
 def save_5m():
     period = '5m'
-    df = pl.read_parquet(HISTORY_STOCK_1m).filter(pl.col('stock_code') == '000001.SZ')
+    df = pl.read_parquet(HISTORY_STOCK_1m)  # .filter(pl.col('stock_code') == '000001.SZ')
     df = convert_1m_to_5m(df, period, closed="right", label="right")
     df.write_parquet(HISTORY_STOCK_5m)
     print('沪深A股_5m===========')
@@ -58,9 +58,12 @@ if __name__ == "__main__":
 
     # ==========
     # logger.info('开始转存数据。请根据自己策略预留一定长度的数据')
-    start_time = "20250101"
+    start_time = datetime.now() - timedelta(days=30)
+    start_time = start_time.strftime("%Y%m%d")
     save_1d(start_time, end_time)
-    start_time = "20250201"
+
+    start_time = datetime.now() - timedelta(days=15)
+    start_time = start_time.strftime("%Y%m%d")
     save_1m(start_time, end_time)
     # ==========
     logger.info('1分钟转5分钟')
