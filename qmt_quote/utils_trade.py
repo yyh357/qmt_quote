@@ -1,5 +1,5 @@
 import math
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 import pandas as pd
@@ -418,6 +418,31 @@ def send_orders_1(trader, account, details, d1d1, d1d2):
         df['volume'] = 0
 
     return df
+
+
+def send_orders_2(orders: pd.DataFrame, stock_list: List[str], size: float = 0, or_volume: bool = True) -> pd.DataFrame:
+    """过滤要交易的股票，并设置size
+
+    1. 因子结果所指定的股票，一般是要买入的股票
+    2. 持仓中的股票，一般是要卖出的股票或调整的股票
+
+    Parameters
+    ----------
+    orders: pd.DataFrame
+        - volume:int (required)
+
+    Notes
+    -----
+    本代码只是演示如何调整size，用户应当按自己的需求另外创建处理函数
+
+    """
+    orders.loc[stock_list, 'size'] = size
+    if or_volume:
+        orders = orders[(orders['size'].notna()) | (orders['volume'] > 0)].copy()
+    else:
+        orders = orders[orders['size'].notna()].copy()
+
+    return orders
 
 
 def send_orders_3(trader, account, orders: pd.DataFrame, size_type: SizeType) -> pd.DataFrame:

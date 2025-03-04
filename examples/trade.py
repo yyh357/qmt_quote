@@ -7,7 +7,7 @@ from qmt_quote.dtypes import DTYPE_STOCK_1m
 from qmt_quote.enums import SizeType
 from qmt_quote.memory_map import get_mmap
 from qmt_quote.trader_callback import MyXtQuantTraderCallback
-from qmt_quote.utils_trade import to_dict, objs_to_dataframe, cancel_orders, before_market_open, send_orders_1, send_orders_3, send_orders_4, send_orders_5
+from qmt_quote.utils_trade import to_dict, objs_to_dataframe, cancel_orders, before_market_open, send_orders_1, send_orders_2, send_orders_3, send_orders_4, send_orders_5
 
 pd.set_option('display.width', 1000)
 pd.set_option('display.max_columns', None)
@@ -77,8 +77,8 @@ if __name__ == "__main__":
 
             df = send_orders_1(xt_trader, acc, details, d1d1=d1d1, d1d2=d1d2)
             # 等市值买入
-            stock_list = ['600000.SH', '000001.SZ', '000638.SZ', '002750.SZ', '688004.SH']
-            df.loc[stock_list, 'size'] = 0.05
+            stock_list = ['600000.SH']
+            df = send_orders_2(df, stock_list, 0.05, or_volume=False)
 
             df = send_orders_3(xt_trader, acc, df, SizeType.TargetValuePercent)
             df = send_orders_4(df, -1, -10, False)
