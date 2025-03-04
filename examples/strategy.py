@@ -58,10 +58,10 @@ if __name__ == "__main__":
             continue
         last_time = curr_time
         # 过滤时间。调整成成分钟标签，是取当前更新中的K线，还是去上一根不变的K线
-        filter_1m = (curr_time // 60 * 60 - 60) * 1000
-        filter_5m = (curr_time // 300 * 300 - 300) * 1000
-        # 日线8时区处理
-        filter_1d = (curr_time // 86400 * 86400 - 3600 * 8) * 1000
+        label_1m = (curr_time // 60 * 60 - 60) * 1000
+        label_5m = (curr_time // 300 * 300 - 300) * 1000
+        # 日线, 东八区处理
+        label_1d = ((curr_time + 3600 * 8) // 86400 * 86400 - 3600 * 8) * 1000
 
         # 更新当前位置
         slice_d1d.update(int(d1d2[0]))  # 日线
@@ -69,7 +69,7 @@ if __name__ == "__main__":
         slice_d5m.update(int(d5m2[0]))  # 5分钟
 
         # 取今天全部数据和历史数据计算因子
-        df = last_factor(d1m1[slice_d1m.for_all()], his_stk_1m, filter_1m, main)
+        df = last_factor(d1m1[slice_d1m.for_all()], his_stk_1m, label_1m, main)
 
         #
         df = df.select("stock_code", pl.col("time").cast(pl.UInt64), pl.lit(1).alias('strategy_id'),

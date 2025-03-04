@@ -88,7 +88,7 @@ def load_history_data(path: str) -> pl.DataFrame:
     return df
 
 
-def last_factor(arr: np.ndarray, his: pl.DataFrame = None, filter_time: float = 0, func=None) -> pl.DataFrame:
+def last_factor(arr: np.ndarray, his: pl.DataFrame = None, filter_label: float = 0, func=None) -> pl.DataFrame:
     """获取最终因子值
 
     Parameters
@@ -97,20 +97,20 @@ def last_factor(arr: np.ndarray, his: pl.DataFrame = None, filter_time: float = 
         当日分钟数据
     his
         历史数据
-    filter_time:int
-        取指定时间值
+    filter_label:int
+        取指定标签
     func
         因子计算函数
 
     """
     arr = arr[arr['type'] == InstrumentType.Stock]  # 过滤掉指数，只处理股票
-    if filter_time > 0:
-        arr = arr[arr['time'] <= filter_time]
+    if filter_label > 0:
+        arr = arr[arr['time'] <= filter_label]
     df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
     df = concat_interday(his, df)
     df = calc_factor1(df)
     if func is not None:
         df = func(df)
-    if filter_time > 0:
-        df = df.filter(pl.col('time').dt.timestamp(time_unit='ms') == filter_time)
+    if filter_label > 0:
+        df = df.filter(pl.col('time').dt.timestamp(time_unit='ms') == filter_label)
     return df
