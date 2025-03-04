@@ -107,23 +107,22 @@ def adjust_price_2(is_buy: bool, board_type: BoardType, price: float,
         调整后的价格
 
     """
-    is_kcb = board_type == BoardType.KCB
-    is_bj = board_type == BoardType.BJ
-    is_cyb = board_type == BoardType.CYB
-
-    tick10 = tick * 10
-
     if is_buy:
         base = ask_1 or bid_1 or last_price or pre_close
     else:
         base = bid_1 or ask_1 or last_price or pre_close
 
+    is_kcb = board_type == BoardType.KCB
+    is_cyb = board_type == BoardType.CYB
     if is_kcb or is_cyb:
         if is_buy:
             return min(base * 1.02, price)
         else:
             return max(base * 0.98, price)
-    elif is_bj:
+
+    tick10 = tick * 10
+    is_bj = board_type == BoardType.BJ
+    if is_bj:
         if is_buy:
             return min(max(base * 1.05, base + tick10), price)
         else:
@@ -160,7 +159,7 @@ def adjust_price_3(is_buy: bool, price: float,
 
     Notes
     -----
-    TODO 上市第一天的涨幅停牌，这里要再设计
+    TODO 新股上市第一天临时停牌规则要特别设计
 
     """
     if is_buy:
@@ -397,6 +396,7 @@ def send_orders_1(trader, account, details, d1d1, d1d2):
     # 从内存映射文件中读取日线数据，内有买卖一价
     end = int(d1d2[0])
     assert end > 0, 'No data in memory mapping file.'
+
     ticks = pd.DataFrame(d1d1[:end]).set_index('stock_code')
     # volume与Position中重名，所以改一下。其他名字与get_full_tick相同
     ticks.rename(columns={'close': 'lastPrice', 'preClose': 'lastClose', 'volume': 'VOLUME'}, inplace=True)
@@ -420,8 +420,8 @@ def send_orders_1(trader, account, details, d1d1, d1d2):
     return df
 
 
-def send_orders_2(trader, account, orders: pd.DataFrame, size_type: SizeType) -> pd.DataFrame:
-    """下单前准备工作第2步
+def send_orders_3(trader, account, orders: pd.DataFrame, size_type: SizeType) -> pd.DataFrame:
+    """下单前准备工作第3步。没有第2步，因为第2步是用户自己设置的
 
     1. 委托量计算
     2. 方向计算
@@ -457,6 +457,9 @@ def send_orders_2(trader, account, orders: pd.DataFrame, size_type: SizeType) ->
     https://github.com/wukan1986/LightBT/blob/main/lightbt/portfolio.py#L283
     
     """
+    if orders.empty:
+        return orders
+
     # 查可用资金
     asset = to_dict(trader.query_stock_asset(account))
     total_asset = asset['total_asset']
@@ -473,6 +476,7 @@ def send_orders_2(trader, account, orders: pd.DataFrame, size_type: SizeType) ->
         size_type = SizeType.TargetValue
 
     if size_type == SizeType.TargetValue:
+        # 没有行情的股要注意
         orders['size'] = orders['size'] - orders['lastPrice'] * orders['volume']
         size_type = SizeType.Value
 
@@ -482,6 +486,7 @@ def send_orders_2(trader, account, orders: pd.DataFrame, size_type: SizeType) ->
         size_type = SizeType.Amount
 
     if size_type == SizeType.Value:
+        # TODO 这里是否要修改成报单价？冻结资金和可开手术其实是按报单价算的
         orders['size'] = orders['size'] / orders['lastPrice']
         size_type = SizeType.Amount
 
@@ -492,8 +497,8 @@ def send_orders_2(trader, account, orders: pd.DataFrame, size_type: SizeType) ->
     return orders
 
 
-def send_orders_3(orders: pd.DataFrame, priority: int, offset: int, is_auction: bool) -> pd.DataFrame:
-    """下单前准备工作第3步
+def send_orders_4(orders: pd.DataFrame, priority: int, offset: int, is_auction: bool) -> pd.DataFrame:
+    """下单前准备工作第4步
 
     1. 调整下单价格
     2. 价格笼子调整
@@ -523,6 +528,9 @@ def send_orders_3(orders: pd.DataFrame, priority: int, offset: int, is_auction: 
         - price:float (required)
 
     """
+    if orders.empty:
+        return orders
+
     # 根据需求设置下单价格
     orders['price'] = orders.apply(lambda x: adjust_price_1(x.is_buy, priority, offset, x.bidPrice_1, x.askPrice_1, x.lastPrice, x.lastClose, tick=0.01), axis=1)
     if not is_auction:
@@ -534,8 +542,8 @@ def send_orders_3(orders: pd.DataFrame, priority: int, offset: int, is_auction: 
     return orders
 
 
-def send_orders_4(trader, account, orders: pd.DataFrame, strategy_name: str, order_remark: str, debug: bool = True) -> pd.DataFrame:
-    """下单第4步
+def send_orders_5(trader, account, orders: pd.DataFrame, strategy_name: str, order_remark: str, debug: bool = True) -> pd.DataFrame:
+    """下单第5步
 
     1. 委托量调整
     2. 下单
@@ -576,6 +584,9 @@ def send_orders_4(trader, account, orders: pd.DataFrame, strategy_name: str, ord
     orders['order_volume'] = orders.apply(lambda x: adjust_quantity(x.is_buy, x.board_type, x['size'], x.can_use_volume, tolerance=10), axis=1)
     # 过滤掉不交易的
     orders = orders[orders['order_volume'] > 0].copy()
+    if orders.empty:
+        return orders
+
     orders['seq'] = 0
     orders.reset_index(inplace=True)
     for i, v in orders.iterrows():
@@ -585,63 +596,3 @@ def send_orders_4(trader, account, orders: pd.DataFrame, strategy_name: str, ord
         else:
             orders.loc[i, 'seq'] = trader.order_stock_async(account, v.stock_code, v.order_type, v.order_volume, xtconstant.FIX_PRICE, v.price, strategy_name, order_remark)
     return orders
-
-# 
-# def send_orders(trader, account, orders: pd.DataFrame, priority: int, offset: int, is_auction: bool, strategy_name: str, order_remark: str, debug: bool = True) -> pd.DataFrame:
-#     """下单
-# 
-#     Parameters
-#     ----------
-#     trader
-#     account
-#     orders: pd.DataFrame
-#         - stock_code:str (required)
-#         - is_kcb:bool (required)
-#         - DownStopPrice:float (required)
-#         - UpStopPrice:float (required)
-# 
-#         - can_use_volume:int (required)
-# 
-#         - bidPrice_1:float (required)
-#         - askPrice_1:float (required)
-#         - lastPrice:float (required)
-#         - lastClose:float (required)
-# 
-#         - quantity:int (required)
-#         - is_buy:bool (required)
-#     priority:int
-#         报价激进或保守
-#     offset:int
-#         报价偏移
-#     is_auction:bool
-#         是否集合竞价时段。集合竞价时，没有价格笼子
-#     strategy_name:str
-#         策略名称
-#     order_remark:str
-#         备注
-#     debug:bool
-#         调试，只打印不下单
-# 
-#     Returns
-#     -------
-#     pd.DataFrame
-#         - seq
-# 
-#     """
-#     orders['seq'] = 0
-#     orders['order_type'] = np.where(orders['is_buy'], xtconstant.STOCK_BUY, xtconstant.STOCK_SELL)
-#     # 根据需求设置下单价格
-#     orders['price'] = orders.apply(lambda x: adjust_price_1(x.is_buy, priority, offset, x.bidPrice_1, x.askPrice_1, x.lastPrice, x.lastClose, tick=0.01), axis=1)
-#     if not is_auction:
-#         # 价格笼子调整
-#         orders['price'] = orders.apply(lambda x: adjust_price_2(x.is_buy, x.price, x.bidPrice_1, x.askPrice_1, x.lastPrice, x.lastClose, tick=0.01), axis=1)
-#     # 涨跌停调整
-#     orders['price'] = orders.apply(lambda x: adjust_price_3(x.is_buy, x.price, x.DownStopPrice, x.UpStopPrice, ndigits=100), axis=1)
-#     # 委托量调整
-#     orders['order_volume'] = orders.apply(lambda x: adjust_quantity(x.is_buy, x.is_kcb, x.quantity, x.can_use_volume, tolerance=10), axis=1)  #
-#     for i, v in orders.iterrows():
-#         if debug:
-#             print(f'{v.stock_code=}, {v.is_buy=}, {v.price=}, {v.order_volume=}, {strategy_name=}, {order_remark=}')
-#         else:
-#             orders.loc[i, 'seq'] = trader.order_stock_async(account, v.stock_code, v.order_type, v.order_volume, xtconstant.FIX_PRICE, v.price, strategy_name, order_remark)
-#     return orders
