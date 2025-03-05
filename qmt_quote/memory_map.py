@@ -118,6 +118,8 @@ def get_mmap(filename: str, dtype: np.dtype, count: int, readonly: bool = True, 
             # !!! 一定要调整，否则会扩展文件大小，所以这里重新调整
             count = os.path.getsize(file1) // dtype.itemsize
     else:
+        if readonly:
+            raise FileNotFoundError(f"File {file1} not found.")
         print(f"Creating new file {file1}.")
         np.memmap(file1, dtype=dtype, shape=(count,), mode="w+")
         np.memmap(file2, dtype=np.uint64, shape=(_COUNT_,), mode="w+")
@@ -159,6 +161,8 @@ def update_array2(arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame, index: b
     start = arr2[0]
     step = len(arr)
     end = start + step
+    # 类型转换时可能会丢失精度
+    # RuntimeWarning: invalid value encountered in cast  arr1[start:end] = arr
     arr1[start:end] = arr
     arr2[0] = end
     # arr2.flush()

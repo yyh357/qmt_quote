@@ -113,6 +113,8 @@ class BarManager:
             # TODO 时间戳请选用特别的格式
             time = get_label(s['time'] // 1000, get_label_arg1) * 1000
             stock_code = str(s['stock_code'])
+            # if stock_code != '002951.SZ':
+            #     continue
             key = stock_code, int(s['strategy_id'])
             not_in = key not in self.bars
             if not_in:

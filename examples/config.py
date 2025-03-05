@@ -1,5 +1,9 @@
-# TODO 历史数据目录
+# TODO 历史数据目录，使用实盘QMT标准版，可以手工下载历史数据，然后在miniquant中读出,也可用第三方数据
 DATA_DIR = r"D:\e海方舟-量化交易版\datadir"
+# TODO 交易目录，miniquant版
+USERDATA_DIR = r"D:\迅投极速交易终端 睿智融科版\userdata_mini"
+# TODO: 交易账号
+ACCOUNT = "2025727"
 
 # 5000多只股票,500多指数
 TOTAL_ASSET = 7000

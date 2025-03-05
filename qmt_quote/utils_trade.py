@@ -1,5 +1,5 @@
 import math
-from typing import Optional, List
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -420,7 +420,7 @@ def send_orders_1(trader, account, details, d1d1, d1d2):
     return df
 
 
-def send_orders_2(orders: pd.DataFrame, stock_list: List[str], size: float = 0, or_volume: bool = True) -> pd.DataFrame:
+def send_orders_2(orders: pd.DataFrame, new_orders: pd.DataFrame, size: float = 0, or_volume: bool = True) -> pd.DataFrame:
     """过滤要交易的股票，并设置size
 
     1. 因子结果所指定的股票，一般是要买入的股票
@@ -436,7 +436,10 @@ def send_orders_2(orders: pd.DataFrame, stock_list: List[str], size: float = 0, 
     本代码只是演示如何调整size，用户应当按自己的需求另外创建处理函数
 
     """
-    orders.loc[stock_list, 'size'] = size
+    # 设置size
+    new_orders['size'] = size
+    orders = pd.merge(orders, new_orders, left_index=True, right_on="stock_code", how='left')
+
     if or_volume:
         orders = orders[(orders['size'].notna()) | (orders['volume'] > 0)].copy()
     else:
@@ -519,6 +522,9 @@ def send_orders_3(trader, account, orders: pd.DataFrame, size_type: SizeType) ->
         orders['is_buy'] = orders['size'] >= 0
         orders['size'] = orders['size'].abs()
 
+    # 先卖后买，先平后开
+    orders.sort_values('is_buy', inplace=True)
+
     return orders
 
 
@@ -567,7 +573,7 @@ def send_orders_4(orders: pd.DataFrame, priority: int, offset: int, is_auction: 
     return orders
 
 
-def send_orders_5(trader, account, orders: pd.DataFrame, strategy_name: str, order_remark: str, debug: bool = True) -> pd.DataFrame:
+def send_orders_5(trader, account, orders: pd.DataFrame, order_remark: str, debug: bool = True) -> pd.DataFrame:
     """下单第5步
 
     1. 委托量调整
@@ -615,9 +621,10 @@ def send_orders_5(trader, account, orders: pd.DataFrame, strategy_name: str, ord
     orders['seq'] = 0
     orders.reset_index(inplace=True)
     for i, v in orders.iterrows():
-        if debug:
-            value = v.price * v.order_volume
-            print(f'stock_code={v.stock_code},is_buy={v.is_buy},price={v.price},order_volume={v.order_volume},{strategy_name=},{order_remark=},{value=}')
-        else:
+        strategy_name = str(v['strategy_id'])
+        value = v.price * v.order_volume
+        print(f'stock_code={v.stock_code},is_buy={v.is_buy},price={v.price},order_volume={v.order_volume},{strategy_name=},{order_remark=},{value=}')
+
+        if not debug:
             orders.loc[i, 'seq'] = trader.order_stock_async(account, v.stock_code, v.order_type, v.order_volume, xtconstant.FIX_PRICE, v.price, strategy_name, order_remark)
     return orders
