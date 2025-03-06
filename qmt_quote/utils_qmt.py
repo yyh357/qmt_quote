@@ -107,6 +107,7 @@ def last_factor(arr: np.ndarray, his: pl.DataFrame = None, func=None, filter_lab
     if filter_label > 0:
         arr = arr[arr['time'] <= filter_label]
     df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
+    # TODO 如果这里能设置成df数据够长了就不合并了最好
     df = concat_interday(his, df)
     df = calc_factor1(df)
     if func is not None:

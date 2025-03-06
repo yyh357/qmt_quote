@@ -45,13 +45,17 @@ if __name__ == "__main__":
     subscribe_result = xt_trader.subscribe(acc)
     print("subscribe", subscribe_result)
 
+    debug = True
+
     while True:
-        print(":q 退出")
-        print("1. 查资金/2. 查持仓/3. 查委托")
-        print("4. 撤单/5. 下单")
+        print(":q 退出/0. 切换debug")
+        print(f"1. 查资金/2. 查持仓/3. 查委托/4. 撤单/5. 下单({debug=})")
         choice = input()
         if choice == ":q":
             break
+        if choice == "0":
+            debug = not debug
+            continue
         if choice == "1":
             asset = xt_trader.query_stock_asset(acc)
             print(to_dict(asset))
@@ -90,4 +94,4 @@ if __name__ == "__main__":
 
             df = send_orders_3(xt_trader, acc, df, SizeType.TargetValuePercent)
             df = send_orders_4(df, -1, -10, False)
-            df = send_orders_5(xt_trader, acc, df, order_remark, debug=True)
+            df = send_orders_5(xt_trader, acc, df, order_remark, debug=debug)

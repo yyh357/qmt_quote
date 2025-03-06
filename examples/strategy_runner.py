@@ -45,16 +45,17 @@ his_stk_1m = None
 his_stk_5m = None
 
 
-def to_pandas(df: pl.DataFrame) -> pd.DataFrame:
-    df = df.select("stock_code", pl.col("time").cast(pl.UInt64), pl.lit(1, dtype=pl.Int16).alias('strategy_id'),
-                   pl.col('A').cast(pl.Float32).alias('float32'),
-                   pl.col('B').cast(pl.Int32).alias('int32'),
-                   pl.col('OUT').cast(pl.Boolean).alias('boolean')).to_pandas()
+def to_pandas(df: pl.DataFrame, strategy_id: int = 0) -> pd.DataFrame:
+    df = df.select("stock_code", pl.col("time").cast(pl.UInt64),
+                   strategy_id=strategy_id,
+                   float32=pl.col('A').cast(pl.Float32),
+                   int32=pl.col('B').cast(pl.Int32),
+                   boolean=pl.col('OUT').cast(pl.Boolean),
+                   ).to_pandas()
     return df
 
 
 def main(curr_time: int) -> None:
-    print(datetime.fromtimestamp(curr_time))
     # 过滤时间。调整成成分钟标签，是取当前更新中的K线，还是去上一根不变的K线
     label_1m = (curr_time // 60 * 60 - 60) * 1000
     label_5m = (curr_time // 300 * 300 - 300) * 1000
@@ -72,12 +73,14 @@ def main(curr_time: int) -> None:
         return
 
     # 只对最新值转换格式
-    df = to_pandas(df)
+    df = to_pandas(df, strategy_id=1)
+    # 这里表面上是参照tick数据顺序更新，但上层是按
     start, end, step = update_array2(s1t1, s1t2, df[columns], index=False)
     # 更新方式，全量更新
     start, end, step = bm_s1d.extend(s1t1[start:end], get_label_stock_1d, 3600 * 8)
     # 只显示最新的3条
     start = max(end - 3, 0)
+    print(end, datetime.fromtimestamp(curr_time))
     print(s1d1[start:end])
 
 
@@ -87,7 +90,7 @@ if __name__ == "__main__":
     # 实盘运行
     last_time = -1
     while True:
-        # 调整成成分钟标签，当前分钟还在更新
+        # 调整成成分钟标签，用户可以考虑设置成10秒等更快频率。注意!!!内存映射文件要扩大几倍
         curr_time = datetime.now().timestamp() // 60 * 60
         if curr_time == last_time:
             time.sleep(0.5)
