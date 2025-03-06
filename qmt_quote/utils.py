@@ -49,6 +49,7 @@ def ticks_to_dataframe(datas: Dict[str, Dict[str, Any]],
     df = pd.DataFrame.from_dict(datas, orient="index")
     df["now"] = now
     df["type"] = type
+    # df["avg_price"] = df["amount"] / df["pvolume"]
 
     # 行情深度
     for i in range(level):

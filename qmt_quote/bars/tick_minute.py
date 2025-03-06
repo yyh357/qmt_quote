@@ -9,7 +9,7 @@ import os
 from typing import Tuple
 
 import numpy as np
-from numba import uint64, float32, float64, uint32, typeof, boolean
+from numba import uint64, float32, float64, uint32, typeof, int8
 from numba.experimental import jitclass
 from numba.typed.typeddict import Dict
 
@@ -32,6 +32,7 @@ class Bar:
         self.high: float = 0.
         self.low: float = 0.
         self.type: int = 0
+        self.avg_price: float = 0.
         self.askPrice_1: float = 0.
         self.bidPrice_1: float = 0.
         self.askVol_1: int = 0
@@ -61,6 +62,7 @@ class Bar:
         arr['amount'] = self.last_amount - self.pre_amount
         arr['volume'] = self.last_volume - self.pre_volume
         arr['type'] = self.type
+        arr['avg_price'] = self.avg_price
 
         arr['askPrice_1'] = self.askPrice_1
         arr['bidPrice_1'] = self.bidPrice_1
@@ -96,7 +98,9 @@ class Bar:
         self.close = tick['lastPrice']
         self.last_amount = tick['amount']
         self.last_volume = tick['volume']
-
+        # TODO 不同类型可能不一样，先标记一下
+        if tick['volume'] > 0:
+            self.avg_price = tick['amount'] / tick['volume'] / 100
         self.askPrice_1 = tick['askPrice_1']
         self.bidPrice_1 = tick['bidPrice_1']
         self.askVol_1 = tick['askVol_1']
@@ -122,7 +126,8 @@ if os.environ.get('NUMBA_DISABLE_JIT', '0') != '1':
         ('pre_volume', uint64),
         ('last_amount', float64),
         ('last_volume', uint64),
-        ('type', boolean),
+        ('type', int8),
+        ('avg_price', float32),
         ('askPrice_1', float32),
         ('bidPrice_1', float32),
         ('askVol_1', uint32),

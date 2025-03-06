@@ -25,7 +25,7 @@ DTYPE_STOCK_1t = np.dtype([
     # ("volRatio", np.float32),
     # ("speed1Min", np.float32),
     # ("speed5Min", np.float32),
-
+    # ("avg_price", np.float32),
     ("askPrice_1", np.float32),
     ("askPrice_2", np.float32),
     ("askPrice_3", np.float32),
@@ -64,6 +64,7 @@ DTYPE_STOCK_1m = np.dtype([
     ("volume", np.uint64),
     ("type", np.int8),  # InstrumentType
     # 分钟数据加入的字段，方便下单时直接取价格
+    ("avg_price", np.float32),
     ("askPrice_1", np.float32),
     ("bidPrice_1", np.float32),
     ("askVol_1", np.uint32),
