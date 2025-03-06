@@ -12,11 +12,15 @@
 
 """
 import os
+import pathlib
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Tuple
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 _EXT1_ = ".bin"
 _EXT2_ = ".idx"
@@ -41,7 +45,7 @@ def extend_file_size(file_path: str, new_size: int) -> None:
     with open(file_path, "r+") as f:
         f.truncate(new_size)
         f.flush()
-        print(f"File {file_path} has been extended from {old_size} to {new_size} bytes.")
+        logger.info(f"File {file_path} has been extended from {old_size} to {new_size} bytes.")
 
 
 def truncate_file_size(file_path: str, new_size: int) -> None:
@@ -64,7 +68,7 @@ def truncate_file_size(file_path: str, new_size: int) -> None:
     with open(file_path, "r+") as f:
         f.truncate(new_size)
         f.flush()
-        print(f"File {file_path} has been truncated from {old_size} to {new_size} bytes.")
+        logger.info(f"File {file_path} has been truncated from {old_size} to {new_size} bytes.")
 
 
 def mmap_truncate(filename: str, reserve: int = 10000) -> None:
@@ -83,6 +87,18 @@ def mmap_truncate(filename: str, reserve: int = 10000) -> None:
 
     arr2 = np.memmap(file2, dtype=np.uint64, shape=(_COUNT_,), mode="r")
     truncate_file_size(file1, int((arr2[0] + reserve) * arr2[1]))
+
+
+def mmap_backup(from_path: str, to_path: str, dt: datetime = datetime.now()) -> None:
+    file1 = from_path + _EXT1_
+    file2 = from_path + _EXT2_
+
+    path = pathlib.Path(to_path) / dt.strftime("%Y%m%d")
+    path.mkdir(parents=True, exist_ok=True)
+
+    shutil.copy2(file1, path)
+    shutil.copy2(file2, path)
+    logger.info(f"backup {from_path} to {path}")
 
 
 def get_mmap(filename: str, dtype: np.dtype, count: int, readonly: bool = True, resize: bool = False) -> Tuple[np.ndarray, np.ndarray]:
@@ -111,7 +127,7 @@ def get_mmap(filename: str, dtype: np.dtype, count: int, readonly: bool = True, 
     file2 = filename + _EXT2_
 
     if Path(file1).exists():
-        print(f"File {file1} already exists.")
+        logger.info(f"File {file1} already exists.")
         if resize:
             extend_file_size(file1, count * dtype.itemsize)
         else:
@@ -120,7 +136,7 @@ def get_mmap(filename: str, dtype: np.dtype, count: int, readonly: bool = True, 
     else:
         if readonly:
             raise FileNotFoundError(f"File {file1} not found.")
-        print(f"Creating new file {file1}.")
+        logger.info(f"Creating new file {file1}.")
         np.memmap(file1, dtype=dtype, shape=(count,), mode="w+")
         np.memmap(file2, dtype=np.uint64, shape=(_COUNT_,), mode="w+")
 

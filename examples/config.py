@@ -30,6 +30,9 @@ FILE_d1m = r"M:\d1m"
 FILE_d5m = r"M:\d5m"
 FILE_d1d = r"M:\d1d"
 
+# 备份目录
+BACKUP_DIR = r"F:\backup"
+
 # =====交易设置======
 # 信号
 FILE_s1t = r"M:\s1t"

@@ -1,7 +1,9 @@
+from datetime import datetime
+
 from loguru import logger
 
-from config import FILE_d1t
-from qmt_quote.memory_map import mmap_truncate
+from config import FILE_d1t, BACKUP_DIR
+from qmt_quote.memory_map import mmap_truncate, mmap_backup
 from qmt_quote.utils import generate_code
 
 if __name__ == "__main__":
@@ -16,7 +18,10 @@ if __name__ == "__main__":
             break
         if code1 == code2:
             try:
+                # 截断tick数据
                 mmap_truncate(FILE_d1t, reserve=20000)
+                # 仅备份tick数据
+                mmap_backup(FILE_d1t, BACKUP_DIR, datetime.now())
                 break
             except PermissionError:
                 logger.error("归档失败!!!请关闭其他占用内存映射文件的程序后重试 {}", FILE_d1t)
