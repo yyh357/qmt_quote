@@ -1,4 +1,3 @@
-import math
 from typing import Optional
 
 import numpy as np
@@ -162,13 +161,21 @@ def adjust_price_3(is_buy: bool, price: float,
     TODO 新股上市第一天临时停牌规则要特别设计
 
     """
+    # if is_buy:
+    #     # 买入时价格向下靠拢
+    #     price = math.floor(price * ndigits) / ndigits
+    #     return max(min(limit_up, price), limit_down)
+    # else:
+    #     # 卖出时价格向上靠拢
+    #     price = math.ceil(price * ndigits) / ndigits
+    #     return min(max(limit_down, price), limit_up)
     if is_buy:
         # 买入时价格向下靠拢
-        price = math.floor(price * ndigits) / ndigits
+        price = round(price * ndigits) / ndigits
         return max(min(limit_up, price), limit_down)
     else:
         # 卖出时价格向上靠拢
-        price = math.ceil(price * ndigits) / ndigits
+        price = round(price * ndigits) / ndigits
         return min(max(limit_down, price), limit_up)
 
 
@@ -561,6 +568,8 @@ def send_orders_4(orders: pd.DataFrame, priority: int, offset: int, is_auction: 
     """
     if orders.empty:
         return orders
+
+    # orders = orders[orders['stock_code'] == '002750.SZ'].copy()
 
     # 根据需求设置下单价格
     orders['price'] = orders.apply(lambda x: adjust_price_1(x.is_buy, priority, offset, x.bidPrice_1, x.askPrice_1, x.lastPrice, x.lastClose, tick=0.01), axis=1)

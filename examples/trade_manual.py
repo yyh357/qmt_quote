@@ -11,7 +11,7 @@ from xtquant.xttrader import XtQuantTrader
 from xtquant.xttype import StockAccount
 
 from examples.config import FILE_d1d, TOTAL_1d, USERDATA_DIR, ACCOUNT, FILE_s1d
-from examples.strategy import STRATEGY_COUNT
+from examples.strategy_runner import STRATEGY_COUNT
 from qmt_quote.dtypes import DTYPE_STOCK_1m, DTYPE_SIGNAL_1m
 from qmt_quote.enums import SizeType
 from qmt_quote.memory_map import get_mmap
@@ -93,5 +93,5 @@ if __name__ == "__main__":
             df = send_orders_2(df, pd.DataFrame(arr), 0.05, or_volume=True)
 
             df = send_orders_3(xt_trader, acc, df, SizeType.TargetValuePercent)
-            df = send_orders_4(df, -1, -10, False)
+            df = send_orders_4(df, -1, 0, False)
             df = send_orders_5(xt_trader, acc, df, order_remark, debug=debug)

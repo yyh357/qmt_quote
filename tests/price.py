@@ -15,3 +15,6 @@ print(adjust_price_1(True, 0, 0, 10, 11, 15, 12))
 print(adjust_price_1(True, 1, 1, 10, 11, 15, 12))
 print(adjust_price_1(False, 1, 1, 10, 11, 15, 12))
 print(adjust_price_1(False, 1, 2, 0, 0, 0, 12))
+
+
+print(adjust_price_3(False, 1.4600000000000001, ndigits=100))
