@@ -1,9 +1,12 @@
 import configparser
 from typing import List, Tuple, Union
 
+import pandas as pd
+
 __all__ = [
     "get_block_members_ths",
     "get_block_members_tdx",
+    "get_signals_tdx",
 ]
 
 
@@ -83,6 +86,39 @@ def get_block_members_tdx(path: str) -> List[Tuple[str, str]]:
         return [(_[:1], _[1:]) for _ in f.read().splitlines() if len(_) > 0]
 
 
+def get_signals_tdx(path: str, *, auto_export: bool) -> pd.DataFrame:
+    """读取通达信预警结果，返回DataFrame
+
+    Parameters
+    ----------
+    path:str
+        通达信预警结果文件
+    auto_export:bool
+        是否预警结果自动导出的文件
+
+    """
+    if auto_export:
+        kwargs = {
+            "names": ["code", "name", "datetime", "price", "pct_change", "value", "condition"],
+            "parse_dates": ["datetime"],
+        }
+    else:
+        kwargs = {
+            "names": ["name", "code", "time", "price", "pct_change", "condition"],
+            "parse_dates": ["time"],  # 只有时间，没有日期 %H:%M
+            "date_format": "mixed",  # 自动填充了当前日期
+        }
+    return pd.read_csv(
+        path,
+        sep="\t",
+        header=None,
+        index_col=False,
+        encoding="gbk",
+        dtype={'code': str},
+        converters={'pct_change': lambda x: float(x.strip('%')) / 100},
+        **kwargs)
+
+
 if __name__ == "__main__":
     path = r"D:\海王星金融终端-中国银河证券\T0002\blocknew\zxg.blk"
     print(get_block_members_tdx(path))
@@ -93,3 +129,8 @@ if __name__ == "__main__":
     print(get_block_members_ths(path1, "昨日涨停，今日高开7%"))
     print(get_block_members_ths(path1, "今日涨停;业绩预增"))
     print(get_block_members_ths([path1, path2], "板块2"))
+
+    path = r"D:\海王星金融终端-中国银河证券\signals.txt"
+    print(get_signals_tdx(path, auto_export=True))
+    path = r"d:\Users\Xxx\Desktop\signals.txt"
+    print(get_signals_tdx(path, auto_export=False))
