@@ -60,3 +60,7 @@ sys.path.insert(0, r"D:\GitHub\qmt_quote")
 ```
 D:\GitHub\qmt_quote
 ```
+
+## 其它用法
+
+使用`qmt_quote.tools`中函数，对接`通达信条件预警`(get_block_members_tdx)和`同花顺动态板块`(get_block_members_ths)可获取股票列表。
