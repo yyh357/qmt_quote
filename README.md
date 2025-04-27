@@ -11,18 +11,17 @@
 
 1. 安装`QMT`
 2. 安装`python/conda`。版本不能太低，截至2025年3月，推荐`python3.12`
-3. 在虚拟环境中安装`xtquant`
-4. 在虚拟环境中`pip install -r requirements.txt`
-5. 修改`config.py`中的配置。如：
+3. 在虚拟环境中`pip install -r requirements.txt`
+4. 修改`config.py`中的配置。如：
     - TOTAL_ASSET: 股票+指数 的数量
     - TICKS_PER_MINUTE: 股票1分钟收到的总TICK数量。一般要比实际的大一些，否则溢出报错
     - TOTAL_1t: Tick总记录条数，**一定要预留足够的空间**，否则溢出报错
     - FILE_1d: 数据文件路径。会维护2个文件。一个存数据，一个记录最新位置
     - HISTORY_STOCK_1d: 历史数据保存位置。用于盘前准备历史数据
-6. 运行`QMT普通版`, 手动下载历史数据。一般在交易日收盘后16点以后运行
-7. 运行`prepare_history.py`, 准备历史数据。会将历史数据转存到`HISTORY_STOCK_1d`等位置
-8. 编辑运行`run_tick.bat`, 转存全推行情。需要在开盘前运行，否则错失数据
-9. 编辑运行`run_minute.bat`, Tick转K线。可盘中再启动
+5. 运行`QMT普通版`, 手动下载历史数据。一般在交易日收盘后16点以后运行
+6. 运行`prepare_history.py`, 准备历史数据。会将历史数据转存到`HISTORY_STOCK_1d`等位置
+7. 编辑运行`run_tick.bat`, 转存全推行情。需要在开盘前运行，否则错失数据
+8. 编辑运行`run_minute.bat`, Tick转K线。可盘中再启动
 
 ## 进阶用法
 

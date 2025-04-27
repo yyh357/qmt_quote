@@ -10,6 +10,13 @@
 
 本项目一定要开启，因为实盘策略利用它生成的日线数据下单
 """
+import sys
+from pathlib import Path
+
+# 添加当前目录和上一级目录到sys.path
+sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
+sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
+
 import time
 from datetime import datetime
 

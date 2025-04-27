@@ -5,6 +5,13 @@
 3. 启动前确保数据文件合适大小
 4. 15点以后再关闭，否则错失中间数据
 """
+import sys
+from pathlib import Path
+
+# 添加当前目录和上一级目录到sys.path
+sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
+sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
+
 from datetime import datetime
 
 from tqdm import tqdm

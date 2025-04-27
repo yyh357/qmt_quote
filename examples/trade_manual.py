@@ -4,6 +4,13 @@
 3. strategy.py 策略信号生成
 4. trade_manual.py 读取信号手动下单
 """
+import sys
+from pathlib import Path
+
+# 添加当前目录和上一级目录到sys.path
+sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
+sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
+
 import time
 
 import pandas as pd
