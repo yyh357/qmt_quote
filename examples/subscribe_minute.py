@@ -11,31 +11,27 @@
 本项目一定要开启，因为实盘策略利用它生成的日线数据下单
 """
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
+
+from npyt import NPYT
+from tqdm import tqdm
 
 # 添加当前目录和上一级目录到sys.path
 sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
 sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
 
-import time
-from datetime import datetime
-
-from tqdm import tqdm
-
-from examples.config import FILE_d1t, FILE_d1m, FILE_d1d, TOTAL_1t, TOTAL_1m, TOTAL_1d, TICKS_PER_MINUTE, TOTAL_5m, FILE_d5m, TOTAL_ASSET
-from qmt_quote.bars.labels import get_label_stock_1m, get_label_stock_5m
+from examples.config import FILE_d1t, FILE_d1d, TOTAL_1d, FILE_d1m, TOTAL_1m, TOTAL_5m, FILE_d5m, TICKS_PER_MINUTE
+from qmt_quote.bars.labels import get_label_stock_5m, get_label_stock_1m
 from qmt_quote.bars.tick_day import BarManager as BarManagerD
 from qmt_quote.bars.tick_minute import BarManager as BarManagerM
-from qmt_quote.dtypes import DTYPE_STOCK_1t, DTYPE_STOCK_1m
-from qmt_quote.memory_map import get_mmap, SliceUpdater
+from qmt_quote.dtypes import DTYPE_STOCK_1m
 
-d1t1, d1t2 = get_mmap(FILE_d1t, DTYPE_STOCK_1t, TOTAL_1t, readonly=True)
-d1d1, d1d2 = get_mmap(FILE_d1d, DTYPE_STOCK_1m, TOTAL_1d, readonly=False)
-d1m1, d1m2 = get_mmap(FILE_d1m, DTYPE_STOCK_1m, TOTAL_1m, readonly=False)
-d5m1, d5m2 = get_mmap(FILE_d5m, DTYPE_STOCK_1m, TOTAL_5m, readonly=False)
-
-slice_d1t = SliceUpdater(min1=TICKS_PER_MINUTE, overlap_ratio=3, step_ratio=30)
-slice_d1m = SliceUpdater(min1=TOTAL_ASSET, overlap_ratio=3, step_ratio=30)
+d1t = NPYT(FILE_d1t).load(mmap_mode="r")
+d1d = NPYT(FILE_d1d).save(dtype=DTYPE_STOCK_1m, capacity=TOTAL_1d).load(mmap_mode="r+")
+d1m = NPYT(FILE_d1m).save(dtype=DTYPE_STOCK_1m, capacity=TOTAL_1m).load(mmap_mode="r+")
+d5m = NPYT(FILE_d5m).save(dtype=DTYPE_STOCK_1m, capacity=TOTAL_5m).load(mmap_mode="r+")
 
 if __name__ == "__main__":
     print()
@@ -43,21 +39,19 @@ if __name__ == "__main__":
     print()
 
     bar_format = "{desc}: {percentage:5.2f}%|{bar}{r_bar}"
-    pbar = tqdm(total=len(d1t1), desc="股票+指数", initial=0, bar_format=bar_format, ncols=100)
+    pbar = tqdm(total=d1t.capacity(), desc="股票+指数", initial=0, bar_format=bar_format, ncols=100)
 
-    bm_d1d = BarManagerD(d1d1, d1d2)
-    bm_d1m = BarManagerM(d1m1, d1m2)
-    bm_d5m = BarManagerM(d5m1, d5m2)
+    bm_d1d = BarManagerD(d1d._a, d1d._t)
+    bm_d1m = BarManagerM(d1m._a, d1m._t)
+    bm_d5m = BarManagerM(d5m._a, d5m._t)
 
     while True:
-        start, end, cursor = slice_d1t.update(int(d1t2[0]))
-        if start == cursor:
+        # tick数据顺序调用，每一条不会重复使用
+        a1t = d1t.read(n=TICKS_PER_MINUTE, prefetch=0, copy=False)
+        if len(a1t) == 0:
             # 没有新数据要更新，等等
             time.sleep(0.5)
             continue
-
-        # tick数据顺序调用，每一条不会重复使用
-        a1t = d1t1[slice_d1t.for_next()]
 
         now = datetime.now().timestamp()
         t = a1t[-1]['now'] / 1000

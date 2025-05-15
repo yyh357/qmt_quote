@@ -2,6 +2,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from npyt import NPYT
 from numba import njit
 from xtquant import xtconstant, xtdata
 from xtquant.xtconstant import *  # noqa
@@ -366,7 +367,7 @@ def before_market_open(G):
     return details
 
 
-def send_orders_1(trader, account, details, d1d1, d1d2):
+def send_orders_1(trader, account, details, npyt_obj: NPYT):
     """下单前准备工作第1步
 
     1. 获取可卖出持仓数量
@@ -401,10 +402,10 @@ def send_orders_1(trader, account, details, d1d1, d1d2):
 
     """
     # 从内存映射文件中读取日线数据，内有买卖一价
-    end = int(d1d2[0])
+    end = npyt_obj.end()
     assert end > 0, 'No data in memory mapping file.'
 
-    ticks = pd.DataFrame(d1d1[:end]).set_index('stock_code')
+    ticks = pd.DataFrame(npyt_obj.data()).set_index('stock_code')
     # volume与Position中重名，所以改一下。其他名字与get_full_tick相同
     ticks.rename(columns={'close': 'lastPrice', 'preClose': 'lastClose', 'volume': 'VOLUME'}, inplace=True)
     # 合并涨跌停
@@ -427,7 +428,8 @@ def send_orders_1(trader, account, details, d1d1, d1d2):
     return df
 
 
-def send_orders_2(orders: pd.DataFrame, new_orders: pd.DataFrame, size: float = 0, or_volume: bool = True) -> pd.DataFrame:
+def send_orders_2(orders: pd.DataFrame, new_orders: pd.DataFrame, size: float = 0,
+                  or_volume: bool = True) -> pd.DataFrame:
     """过滤要交易的股票，并设置size
 
     1. 因子结果所指定的股票，一般是要买入的股票
@@ -572,12 +574,17 @@ def send_orders_4(orders: pd.DataFrame, priority: int, offset: int, is_auction: 
     # orders = orders[orders['stock_code'] == '002750.SZ'].copy()
 
     # 根据需求设置下单价格
-    orders['price'] = orders.apply(lambda x: adjust_price_1(x.is_buy, priority, offset, x.bidPrice_1, x.askPrice_1, x.lastPrice, x.lastClose, tick=0.01), axis=1)
+    orders['price'] = orders.apply(
+        lambda x: adjust_price_1(x.is_buy, priority, offset, x.bidPrice_1, x.askPrice_1, x.lastPrice, x.lastClose,
+                                 tick=0.01), axis=1)
     if not is_auction:
         # 价格笼子调整
-        orders['price'] = orders.apply(lambda x: adjust_price_2(x.is_buy, x.board_type, x.price, x.bidPrice_1, x.askPrice_1, x.lastPrice, x.lastClose, tick=0.01), axis=1)
+        orders['price'] = orders.apply(
+            lambda x: adjust_price_2(x.is_buy, x.board_type, x.price, x.bidPrice_1, x.askPrice_1, x.lastPrice,
+                                     x.lastClose, tick=0.01), axis=1)
     # 涨跌停调整
-    orders['price'] = orders.apply(lambda x: adjust_price_3(x.is_buy, x.price, x.DownStopPrice, x.UpStopPrice, ndigits=100), axis=1)
+    orders['price'] = orders.apply(
+        lambda x: adjust_price_3(x.is_buy, x.price, x.DownStopPrice, x.UpStopPrice, ndigits=100), axis=1)
 
     return orders
 
@@ -621,7 +628,8 @@ def send_orders_5(trader, account, orders: pd.DataFrame, order_remark: str, debu
 
     orders['order_type'] = np.where(orders['is_buy'], xtconstant.STOCK_BUY, xtconstant.STOCK_SELL)
     # 委托量调整
-    orders['order_volume'] = orders.apply(lambda x: adjust_quantity(x.is_buy, x.board_type, x['size'], x.can_use_volume, tolerance=10), axis=1)
+    orders['order_volume'] = orders.apply(
+        lambda x: adjust_quantity(x.is_buy, x.board_type, x['size'], x.can_use_volume, tolerance=10), axis=1)
     # 过滤掉不交易的
     orders = orders[orders['order_volume'] > 0].copy()
     if orders.empty:
@@ -632,8 +640,10 @@ def send_orders_5(trader, account, orders: pd.DataFrame, order_remark: str, debu
     for i, v in orders.iterrows():
         strategy_name = str(v['strategy_id'])
         value = v.price * v.order_volume
-        print(f'stock_code={v.stock_code},is_buy={v.is_buy},price={v.price},order_volume={v.order_volume},{strategy_name=},{order_remark=},{value=}')
+        print(
+            f'stock_code={v.stock_code},is_buy={v.is_buy},price={v.price},order_volume={v.order_volume},{strategy_name=},{order_remark=},{value=}')
 
         if not debug:
-            orders.loc[i, 'seq'] = trader.order_stock_async(account, v.stock_code, v.order_type, v.order_volume, xtconstant.FIX_PRICE, v.price, strategy_name, order_remark)
+            orders.loc[i, 'seq'] = trader.order_stock_async(account, v.stock_code, v.order_type, v.order_volume,
+                                                            xtconstant.FIX_PRICE, v.price, strategy_name, order_remark)
     return orders

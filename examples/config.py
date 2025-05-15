@@ -25,18 +25,18 @@ TOTAL_1t = TICKS_PER_MINUTE * 60 * 4  # 60分钟*4个小时
 
 # TODO: 文件名，根据实际情况修改为自己的文件名。可放到内存盘
 # 数据
-FILE_d1t = r"M:\d1t"
-FILE_d1m = r"M:\d1m"
-FILE_d5m = r"M:\d5m"
-FILE_d1d = r"M:\d1d"
+FILE_d1t = r"M:\d1t.npy"
+FILE_d1m = r"M:\d1m.npy"
+FILE_d5m = r"M:\d5m.npy"
+FILE_d1d = r"M:\d1d.npy"
 
 # 备份目录
 BACKUP_DIR = r"F:\backup"
 
 # =====交易设置======
 # 信号
-FILE_s1t = r"M:\s1t"
-FILE_s1d = r"M:\s1d"
+FILE_s1t = r"M:\s1t.npy"
+FILE_s1d = r"M:\s1d.npy"
 
 # TODO 交易目录，miniquant版
 USERDATA_DIR = r"D:\迅投极速交易终端 睿智融科版\userdata_mini"

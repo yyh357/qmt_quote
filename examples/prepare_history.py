@@ -1,15 +1,14 @@
 import sys
-from pathlib import Path
-
-# 添加当前目录和上一级目录到sys.path
-sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
-sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
-
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import polars as pl
 from loguru import logger
 from xtquant import xtdata
+
+# 添加当前目录和上一级目录到sys.path
+sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
+sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
 
 from examples.config import HISTORY_STOCK_1d, HISTORY_INDEX_1d, HISTORY_STOCK_1m, DATA_DIR, HISTORY_STOCK_5m
 from qmt_quote.bars.agg import convert_1m_to_5m

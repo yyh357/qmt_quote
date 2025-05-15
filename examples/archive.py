@@ -1,16 +1,15 @@
 import sys
+from datetime import datetime
 from pathlib import Path
+
+from loguru import logger
+from npyt import NPYT
 
 # 添加当前目录和上一级目录到sys.path
 sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
 sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
 
-from datetime import datetime
-
-from loguru import logger
-
 from config import FILE_d1t, BACKUP_DIR
-from qmt_quote.memory_map import mmap_truncate, mmap_backup
 from qmt_quote.utils import generate_code
 
 if __name__ == "__main__":
@@ -25,10 +24,8 @@ if __name__ == "__main__":
             break
         if code1 == code2:
             try:
-                # 截断tick数据
-                mmap_truncate(FILE_d1t, reserve=20000)
-                # 仅备份tick数据
-                mmap_backup(FILE_d1t, BACKUP_DIR, datetime.now())
+                d1t = NPYT(FILE_d1t).load(mmap_mode="r")
+                d1t.resize().backup(BACKUP_DIR, datetime.now())
                 break
             except PermissionError:
                 logger.error("归档失败!!!请关闭其他占用内存映射文件的程序后重试 {}", FILE_d1t)
