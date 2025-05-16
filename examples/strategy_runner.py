@@ -80,7 +80,7 @@ def main(curr_time: int) -> None:
     # 更新方式，全量更新
     start, end, step = bm_s1d.extend(s1t.read(n=TICKS_PER_MINUTE * 6), get_label_stock_1d, 3600 * 8)
     # 只显示最新的3条
-    print(end, datetime.fromtimestamp(curr_time))
+    print(end, datetime.fromtimestamp(curr_time), datetime.now())
     print(s1d.tail(3))
 
 
