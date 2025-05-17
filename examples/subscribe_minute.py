@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     while True:
         # tick数据顺序调用，每一条不会重复使用
-        a1t = d1t.read(n=TICKS_PER_MINUTE, prefetch=0, copy=False)
+        a1t = d1t.read(n=TICKS_PER_MINUTE, prefetch=0)
         if len(a1t) == 0:
             # 没有新数据要更新，等等
             time.sleep(0.5)
