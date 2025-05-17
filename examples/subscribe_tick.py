@@ -55,14 +55,14 @@ def func(datas):
     if len(d) > 0:
         df = ticks_to_dataframe(d, now=now_ms, index_name='stock_code', level=5,
                                 depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=InstrumentType.Stock)
-        remaining = d1t.append(df[columns].to_records(index=True), ringbuffer=False, bulk=True)
+        remaining = d1t.append(df[columns].to_records(index=True))
         step_ += len(df) - remaining
     # =======================
     d = {k: v for k, v in datas.items() if k in G.沪深指数}
     if len(d) > 0:
         df = ticks_to_dataframe(d, now=now_ms, index_name='stock_code', level=5,
                                 depths=["askPrice", "bidPrice", "askVol", "bidVol"], type=InstrumentType.Index)
-        remaining = d1t.append(df[columns].to_records(index=True), ringbuffer=False, bulk=True)
+        remaining = d1t.append(df[columns].to_records(index=True))
         step_ += len(df) - remaining
     # =======================
     if step_ > 0:

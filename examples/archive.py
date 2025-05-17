@@ -25,7 +25,8 @@ if __name__ == "__main__":
         if code1 == code2:
             try:
                 d1t = NPYT(FILE_d1t).load(mmap_mode="r")
-                d1t.resize().backup(BACKUP_DIR, datetime.now())
+                BACKUP_DIR = Path(BACKUP_DIR) / datetime.now().strftime("%Y%m%d")
+                d1t.resize().backup(BACKUP_DIR)
                 break
             except PermissionError:
                 logger.error("归档失败!!!请关闭其他占用内存映射文件的程序后重试 {}", FILE_d1t)

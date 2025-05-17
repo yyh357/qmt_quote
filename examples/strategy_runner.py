@@ -44,10 +44,10 @@ his_stk_1d = load_history_data(HISTORY_STOCK_1d)
 his_stk_1m = load_history_data(HISTORY_STOCK_1m)
 his_stk_5m = load_history_data(HISTORY_STOCK_5m)
 
-# 仅当日
-his_stk_1d = None
-his_stk_1m = None
-his_stk_5m = None
+# # 仅当日
+# his_stk_1d = None
+# his_stk_1m = None
+# his_stk_5m = None
 
 
 def to_pandas(df: pl.DataFrame, strategy_id: int = 0) -> pd.DataFrame:
@@ -76,7 +76,7 @@ def main(curr_time: int) -> None:
     df = to_pandas(df, strategy_id=1)
     # 这里表面上是参照tick数据顺序更新，但上层是按
     records = df[columns].to_records(index=False, column_dtypes=column_dtypes)
-    remaining = s1t.append(records, ringbuffer=False, bulk=True)
+    remaining = s1t.append(records)
     # 更新方式，全量更新
     start, end, step = bm_s1d.extend(s1t.read(n=TICKS_PER_MINUTE * 6), get_label_stock_1d, 3600 * 8)
     # 只显示最新的3条
