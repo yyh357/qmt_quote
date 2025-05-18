@@ -22,16 +22,17 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
 sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
 
-from examples.config import FILE_d1t, FILE_d1d, TOTAL_1d, FILE_d1m, TOTAL_1m, TOTAL_5m, FILE_d5m, TICKS_PER_MINUTE
+from examples.config import FILE_d1d, TOTAL_1d, FILE_d1m, TOTAL_1m, TOTAL_5m, FILE_d5m, TICKS_PER_MINUTE, \
+    FILE_d1t
 from qmt_quote.bars.labels import get_label_stock_5m, get_label_stock_1m
 from qmt_quote.bars.tick_day import BarManager as BarManagerD
 from qmt_quote.bars.tick_minute import BarManager as BarManagerM
-from qmt_quote.dtypes import DTYPE_STOCK_1m
+from qmt_quote.dtypes import DTYPE_STOCK_1m, DTYPE_STOCK_1t
 
-d1t = NPYT(FILE_d1t).load(mmap_mode="r")
-d1d = NPYT(FILE_d1d).save(dtype=DTYPE_STOCK_1m, capacity=TOTAL_1d).load(mmap_mode="r+")
-d1m = NPYT(FILE_d1m).save(dtype=DTYPE_STOCK_1m, capacity=TOTAL_1m).load(mmap_mode="r+")
-d5m = NPYT(FILE_d5m).save(dtype=DTYPE_STOCK_1m, capacity=TOTAL_5m).load(mmap_mode="r+")
+d1t = NPYT(FILE_d1t, dtype=DTYPE_STOCK_1t).load(mmap_mode="r")
+d1d = NPYT(FILE_d1d, dtype=DTYPE_STOCK_1m).save(capacity=TOTAL_1d).load(mmap_mode="r+")
+d1m = NPYT(FILE_d1m, dtype=DTYPE_STOCK_1m).save(capacity=TOTAL_1m).load(mmap_mode="r+")
+d5m = NPYT(FILE_d5m, dtype=DTYPE_STOCK_1m).save(capacity=TOTAL_5m).load(mmap_mode="r+")
 
 if __name__ == "__main__":
     print()

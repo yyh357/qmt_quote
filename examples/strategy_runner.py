@@ -30,8 +30,8 @@ d1m = NPYT(FILE_d1m).load(mmap_mode="r")
 d5m = NPYT(FILE_d5m).load(mmap_mode="r")
 
 # 信号
-s1t = NPYT(FILE_s1t).save(dtype=DTYPE_SIGNAL_1t, capacity=TOTAL_1m * STRATEGY_COUNT).load(mmap_mode="r+")
-s1d = NPYT(FILE_s1d).save(dtype=DTYPE_SIGNAL_1m, capacity=TOTAL_1d * STRATEGY_COUNT).load(mmap_mode="r+")
+s1t = NPYT(FILE_s1t, dtype=DTYPE_SIGNAL_1t).save(capacity=TOTAL_1m * STRATEGY_COUNT).load(mmap_mode="r+")
+s1d = NPYT(FILE_s1d, dtype=DTYPE_SIGNAL_1m).save(capacity=TOTAL_1d * STRATEGY_COUNT).load(mmap_mode="r+")
 
 column_dtypes = dtype_to_column_dtypes(DTYPE_SIGNAL_1t)
 
@@ -43,6 +43,7 @@ pd.set_option('display.max_colwidth', None)
 his_stk_1d = load_history_data(HISTORY_STOCK_1d)
 his_stk_1m = load_history_data(HISTORY_STOCK_1m)
 his_stk_5m = load_history_data(HISTORY_STOCK_5m)
+
 
 # # 仅当日
 # his_stk_1d = None
@@ -66,11 +67,14 @@ def main(curr_time: int) -> None:
     label_5m = (curr_time // 300 * 300 - 300) * 1000
     # 日线, 东八区处理
     label_1d = ((curr_time + 3600 * 8) // 86400 * 86400 - 3600 * 8) * 1000
+    # label_1m = 0  # TODO 测试用，不做时间过滤
 
     # 取今天全部数据和历史数据计算因子，但只取最新的值
+    t1 = time.perf_counter()
     df = last_factor(d1m.data(), his_stk_1m, factor_func, label_1m)
     if df.is_empty():
         return
+    t2 = time.perf_counter()
 
     # 只对最新值转换格式
     df = to_pandas(df, strategy_id=1)
@@ -80,7 +84,7 @@ def main(curr_time: int) -> None:
     # 更新方式，全量更新
     start, end, step = bm_s1d.extend(s1t.read(n=TICKS_PER_MINUTE * 6), get_label_stock_1d, 3600 * 8)
     # 只显示最新的3条
-    print(end, datetime.fromtimestamp(curr_time), datetime.now())
+    print(end, datetime.fromtimestamp(curr_time), datetime.now(), t2 - t1)
     print(s1d.tail(3))
 
 

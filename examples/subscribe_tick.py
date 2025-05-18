@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from npyt import NPYT
+from npyt.format import dtype_to_column_dtypes
 from tqdm import tqdm
 from xtquant import xtdata
 
@@ -37,10 +38,11 @@ G.沪深指数 = set(G.沪深指数)
 G.沪深基金 = set(G.沪深基金)
 print(f"沪深A股:{len(G.沪深A股)}, 沪深指数:{len(G.沪深指数)}, 沪深基金:{len(G.沪深基金)},")
 
-d1t = NPYT(FILE_d1t).save(dtype=DTYPE_STOCK_1t, capacity=TOTAL_1t).load(mmap_mode="r+")
+d1t = NPYT(FILE_d1t, dtype=DTYPE_STOCK_1t).save(capacity=TOTAL_1t).load(mmap_mode="r+")
 
 # 索引上的名字，在to_records时会用到,所以这里要剔除
 columns = list(DTYPE_STOCK_1t.names)[1:]
+column_dtypes = dtype_to_column_dtypes(DTYPE_STOCK_1t)
 
 
 def func(datas):
