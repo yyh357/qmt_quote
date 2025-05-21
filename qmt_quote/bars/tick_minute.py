@@ -146,9 +146,9 @@ class BarManager:
         tmp.clear()
         self.bars = tmp
 
-        self.index: int = 0
         self.arr1: np.ndarray = arr1
         self.arr2: np.ndarray = arr2
+        self.index: int = int(self.arr2[1])
 
     def reset(self):
         self.bars.clear()

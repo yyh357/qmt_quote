@@ -22,5 +22,6 @@ def _code_block_1():
 # df = pl.read_parquet(HISTORY_STOCK_1d)
 # df = calc_factor1(df, by1='stock_code', by2='time', close='close', pre_close='preClose')
 df = None
-df = codegen_exec(df, _code_block_1, asset='stock_code', date='time', output_file='factor_calc.py')
+df = codegen_exec(df, _code_block_1, asset='stock_code', date='time', output_file='factor_calc.py',
+                  over_null="partition_by", filter_last=True)
 # print(df.tail())

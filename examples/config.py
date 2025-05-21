@@ -25,6 +25,7 @@ TOTAL_1t = TICKS_PER_MINUTE * 60 * 4  # 60分钟*4个小时
 
 # TODO: 文件名，根据实际情况修改为自己的文件名。可放到内存盘
 # 数据
+FILE_d1t_H1 = r"F:\backup\20250520\d1t.npy"  # 历史tick数据
 FILE_d1t = r"M:\d1t.npy"
 FILE_d1m = r"M:\d1m.npy"
 FILE_d5m = r"M:\d5m.npy"

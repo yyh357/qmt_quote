@@ -12,13 +12,13 @@ from npyt.format import dtype_to_column_dtypes
 sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
 sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
 
-from examples.config import FILE_d1m, FILE_d1d, TOTAL_1m, TOTAL_1d, FILE_d5m, HISTORY_STOCK_1d, \
-    HISTORY_STOCK_1m, HISTORY_STOCK_5m, FILE_s1t, FILE_s1d, TICKS_PER_MINUTE
+from examples.config import FILE_d1m, FILE_d1d, TOTAL_1m, TOTAL_1d, FILE_d5m, FILE_s1t, FILE_s1d, TICKS_PER_MINUTE
+from examples.config import HISTORY_STOCK_1d, HISTORY_STOCK_1m, HISTORY_STOCK_5m  # noqa
 from examples.factor_calc import main as factor_func
 from qmt_quote.bars.labels import get_label_stock_1d
 from qmt_quote.bars.signals import BarManager as BarManagerS
 from qmt_quote.dtypes import DTYPE_SIGNAL_1t, DTYPE_SIGNAL_1m
-from qmt_quote.utils_qmt import load_history_data, last_factor
+from qmt_quote.utils_qmt import last_factor, load_history_data  # noqa
 
 columns = list(DTYPE_SIGNAL_1t.names)
 
@@ -39,16 +39,18 @@ pd.set_option('display.width', 1000)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', None)
 
-# 取历史，不建议太长，只要保证最新数据生成正常即可
-his_stk_1d = load_history_data(HISTORY_STOCK_1d)
-his_stk_1m = load_history_data(HISTORY_STOCK_1m)
-his_stk_5m = load_history_data(HISTORY_STOCK_5m)
+# # 取历史，不建议太长，只要保证最新数据生成正常即可
+# his_stk_1d = load_history_data(HISTORY_STOCK_1d)
+# his_stk_1m = load_history_data(HISTORY_STOCK_1m)
+# his_stk_5m = load_history_data(HISTORY_STOCK_5m)
 
+# 仅当日
+his_stk_1d = None
+his_stk_1m = None
+his_stk_5m = None
 
-# # 仅当日
-# his_stk_1d = None
-# his_stk_1m = None
-# his_stk_5m = None
+# 根据策略，在单股票上至少需要的数据量，然后乘股票数，再多留一些余量
+TAIL_N = 120000
 
 
 def to_pandas(df: pl.DataFrame, strategy_id: int = 0) -> pd.DataFrame:
@@ -69,9 +71,9 @@ def main(curr_time: int) -> None:
     label_1d = ((curr_time + 3600 * 8) // 86400 * 86400 - 3600 * 8) * 1000
     # label_1m = 0  # TODO 测试用，不做时间过滤
 
-    # 取今天全部数据和历史数据计算因子，但只取最新的值
     t1 = time.perf_counter()
-    df = last_factor(d1m.data(), his_stk_1m, factor_func, label_1m)
+    # 计算因子
+    df = last_factor(d1m.tail(TAIL_N), factor_func, label_1m)
     if df.is_empty():
         return
     t2 = time.perf_counter()

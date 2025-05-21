@@ -23,8 +23,8 @@ from polars_ta.prefix.cdl import *  # noqa
 DataFrame = TypeVar("DataFrame", _pl_LazyFrame, _pl_DataFrame)
 # ===================================
 
-_ = ["factor2", "CLOSE", "B", "close", "A"]
-[factor2, CLOSE, B, close, A] = [pl.col(i) for i in _]
+_ = ["factor2", "B", "close", "CLOSE", "A"]
+[factor2, B, close, CLOSE, A] = [pl.col(i) for i in _]
 
 _ = ["MA5", "MA10", "OUT"]
 [MA5, MA10, OUT] = [pl.col(i) for i in _]
@@ -79,32 +79,42 @@ def func_3_cl(df: DataFrame) -> DataFrame:
 
 """
 #========================================func_0_cl
-CLOSE = close*factor2
+CLOSE = close*factor2 #
 #========================================func_1_ts__stock_code
-MA5 = ts_mean(CLOSE, 5)
-MA10 = ts_mean(CLOSE, 10)
-A = ts_returns(CLOSE, 5)
+MA5 = ts_mean(CLOSE, 5) #
+MA10 = ts_mean(CLOSE, 10) #
+A = ts_returns(CLOSE, 5) #
 #========================================func_2_cs__time
-B = cs_rank(-A, _FALSE_)
+B = cs_rank(-A, _FALSE_) #
 #========================================func_3_cl
-OUT = B <= 5
+OUT = B <= 5 #
 """
 
 """
-CLOSE = close*factor2
-MA5 = ts_mean(CLOSE, 5)
-MA10 = ts_mean(CLOSE, 10)
-A = ts_returns(CLOSE, 5)
-B = cs_rank(-A, _FALSE_)
-OUT = B <= 5
+CLOSE = close*factor2 #
+MA5 = ts_mean(CLOSE, 5) #
+MA10 = ts_mean(CLOSE, 10) #
+A = ts_returns(CLOSE, 5) #
+B = cs_rank(-A, _FALSE_) #
+OUT = B <= 5 #
 """
+
+
+def filter_last(df: DataFrame) -> DataFrame:
+    """过滤数据，只取最后一天。实盘时可用于减少计算量
+    前一个调用的ts,这里可以直接调用，可以认为已经排序好
+        `df = filter_last(df)`
+    反之
+        `df = filter_last(df.sort(_DATE_))`
+    """
+    return df.filter(pl.col(_DATE_) >= df.select(pl.last(_DATE_))[0, 0])
 
 
 def main(df: DataFrame) -> DataFrame:
-    # logger.info("start...")
 
     df = func_0_cl(df).drop(*[])
     df = func_1_ts__stock_code(df.sort(_ASSET_, _DATE_)).drop(*[])
+    df = filter_last(df)
     df = func_2_cs__time(df.sort(_DATE_)).drop(*[])
     df = func_3_cl(df).drop(*[])
 
@@ -114,16 +124,5 @@ def main(df: DataFrame) -> DataFrame:
 
     # shrink
     df = df.select(cs.all().shrink_dtype())
-    # df = df.shrink_to_fit()
-
-    # logger.info('done')
-
-    # save
-    # df.write_parquet('output.parquet')
 
     return df
-
-
-# if __name__ in ("__main__", "builtins"):
-#     # TODO: 数据加载或外部传入
-#     df_output = main(df_input)
