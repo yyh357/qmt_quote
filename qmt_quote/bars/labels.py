@@ -112,9 +112,13 @@ def get_label_stock_1d(t: int, tz: int = 3600 * 8) -> int:
     t = (t + tz) // 86400 * 86400
     return t - tz
 
-# @njit(cache=True)
-# def get_label_stock_1d(t: int, tz: int = 3600 * 8) -> int:
-#     n, t0, tz = _get_label_stock(t, tz, 60)
-#     if n == 0:
-#         return 0
-#     return t0 - tz
+
+@njit(cache=True)
+def get_label(t: int, bar_size: int, tz: int = 3600 * 8) -> int:
+    """
+    # 日线, 东八区处理
+    label_1d = (curr_time + 3600 * 8) // 86400 * 86400 - 3600 * 8 - 86400
+
+    日线处理一定要加时区
+    """
+    return (t + tz) // bar_size * bar_size - tz

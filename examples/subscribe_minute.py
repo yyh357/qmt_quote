@@ -4,11 +4,21 @@
 2. Tick转1天
 3. Tick转5分钟
 
-用户可以定制此代码
+1. 用户可以定制此代码
+2. 可盘中开启，会重新转换
+3. 本项目一定要开启，因为实盘策略利用它生成的日线数据下单
 
-可盘中开启，会重新转换
+原理：
+申请足够大的内存映射文件，将prepaer_history.py准备好的历史数据插入到内存映射文件中
+然后实时接收到的tick数据转换写入到同一个内存映射文件
 
-本项目一定要开启，因为实盘策略利用它生成的日线数据下单
+历史可以是两种渠道
+1. prepaer_history.py提前准备的从历史数据文件
+2. subscribe_tick.py昨天前天收到的历史tick数据
+
+1. 使用时一定要防止出现数据出现重叠区域
+2. prepaer_history.py准备的数据有缺失时，可以用subscribe_tick.py的数据代替
+
 """
 import os
 import sys
@@ -16,6 +26,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import polars as pl
 from loguru import logger
 from npyt import NPYT
 from tqdm import tqdm
@@ -24,21 +35,53 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
 sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
 
-from examples.config import (FILE_d1d, TOTAL_1d, FILE_d1m, TOTAL_1m, TOTAL_5m, FILE_d5m, TICKS_PER_MINUTE,
-                             FILE_d1t, FILE_d1t_H1)
+from examples.config import (FILE_d1d, TOTAL_1d, FILE_d1m, TOTAL_1m, TOTAL_5m, FILE_d5m, FILE_d1t, TICKS_PER_MINUTE,
+                             BARS_PER_DAY, TOTAL_ASSET)
 from qmt_quote.bars.labels import get_label_stock_5m, get_label_stock_1m
 from qmt_quote.bars.tick_day import BarManager as BarManagerD
 from qmt_quote.bars.tick_minute import BarManager as BarManagerM
 from qmt_quote.dtypes import DTYPE_STOCK_1m, DTYPE_STOCK_1t
+from qmt_quote.enums import InstrumentType
+from qmt_quote.utils_qmt import load_history_data  # noqa
 
-# 历史TICK数据+实时TICK数据,如果计算数据要求提前加载几天的数据，可以多加几天
-dt1s = [FILE_d1t_H1, FILE_d1t]
-DAYS = len(dt1s)
 # 分种级别数据，将历史TICK和实盘TICK拼接成一个实盘分钟级别数据
-d1m = NPYT(FILE_d1m, dtype=DTYPE_STOCK_1m).save(capacity=TOTAL_1m * DAYS).load(mmap_mode="r+")
-d5m = NPYT(FILE_d5m, dtype=DTYPE_STOCK_1m).save(capacity=TOTAL_5m * DAYS).load(mmap_mode="r+")
-# !!! 当日开高低收快照，用于交易系统下单时取当前行情，所以每天起始位置要重置
+d1m = NPYT(FILE_d1m, dtype=DTYPE_STOCK_1m).save(capacity=TOTAL_1m).load(mmap_mode="r+")
+d5m = NPYT(FILE_d5m, dtype=DTYPE_STOCK_1m).save(capacity=TOTAL_5m).load(mmap_mode="r+")
 d1d = NPYT(FILE_d1d, dtype=DTYPE_STOCK_1m).save(capacity=TOTAL_1d).load(mmap_mode="r+")
+
+
+def prepare_mmap(end_date: pl.datetime):
+    """将历史数据写入到内存文件映射，方便实盘时直接取数据"""
+    from examples.config import HISTORY_STOCK_1d, HISTORY_STOCK_1m, HISTORY_STOCK_5m  # noqa
+
+    his_stk_1m = load_history_data(HISTORY_STOCK_1m, type=InstrumentType.Stock)
+    his_stk_5m = load_history_data(HISTORY_STOCK_5m, type=InstrumentType.Stock)
+    his_stk_1d = load_history_data(HISTORY_STOCK_1d, type=InstrumentType.Stock)
+
+    his_stk_1m = his_stk_1m.filter(pl.col('time') < end_date)
+    his_stk_5m = his_stk_5m.filter(pl.col('time') < end_date)
+    his_stk_1d = his_stk_1d.filter(pl.col('time') < end_date)
+
+    # TODO 调整加载的历史数据量，注意有双休和节假日
+    his_stk_1m = his_stk_1m.sort('time', 'stock_code').tail(BARS_PER_DAY * 3)
+    his_stk_5m = his_stk_5m.sort('time', 'stock_code').tail(BARS_PER_DAY // 5 * 5)
+    his_stk_1d = his_stk_1d.sort('time', 'stock_code').tail(TOTAL_ASSET * 20)
+
+    print("=" * 60)
+    print(his_stk_1m.select(min_time=pl.min('time'), max_time=pl.max('time'), count=pl.count('time')))
+    print(his_stk_5m.select(min_time=pl.min('time'), max_time=pl.max('time'), count=pl.count('time')))
+    print(his_stk_1d.select(min_time=pl.min('time'), max_time=pl.max('time'), count=pl.count('time')))
+
+    # 将历史数据添加到内存文件映射，免去计算时拼接的过程
+    d1m.clear().append(his_stk_1m.select(DTYPE_STOCK_1m.names).to_numpy(structured=True))
+    d5m.clear().append(his_stk_5m.select(DTYPE_STOCK_1m.names).to_numpy(structured=True))
+    d1d.clear().append(his_stk_1d.select(DTYPE_STOCK_1m.names).to_numpy(structured=True))
+
+    logger.info("d1m:{:.4f}, d5m:{:.4f}, d1d:{:.4f}, 注意：0表示空间不够没有插入",
+                d1m.end() / d1m.capacity(),
+                d5m.end() / d5m.capacity(),
+                d1d.end() / d1d.capacity(),
+                )
 
 
 def do(file, is_live=False):
@@ -62,8 +105,6 @@ def do(file, is_live=False):
     # 接着昨天数据生成新K线
     bm_d1m = BarManagerM(d1m._a, d1m._t)
     bm_d5m = BarManagerM(d5m._a, d5m._t)
-    # 日线快照数据要重置
-    d1d.clear()
     bm_d1d = BarManagerD(d1d._a, d1d._t)
 
     bar_format = "{desc}: {percentage:5.2f}%|{bar}{r_bar}"
@@ -88,11 +129,7 @@ def do(file, is_live=False):
 
         bm_d1d.extend(a1t, 3600 * 8)
         bm_d5m.extend(a1t, get_label_stock_5m, 3600 * 8)
-        _, _, step = bm_d1m.extend(a1t, get_label_stock_1m, 3600 * 8)
-        # if step == 0:
-        #     # 如果没有产生新的一分钟K线，就等等
-        #     if is_live:
-        #         time.sleep(0.5)
+        bm_d1m.extend(a1t, get_label_stock_1m, 3600 * 8)
 
 
 if __name__ == "__main__":
@@ -100,15 +137,21 @@ if __name__ == "__main__":
     print(f"Tick数据转分钟数据。可盘中多次开启关闭。CTRL+C退出")
     print()
     print("=" * 60)
-    print(f"分钟数据当前指针：{d1m.end()}")
 
-    d1m.clear()
-    d5m.clear()
-    d1d.clear()
+    # TODO 指定日期之前的数据从parquet中加载写入到内存文件映射
+    # end_date = pl.datetime(2025, 5, 22, time_unit='ms', time_zone='Asia/Shanghai')
+    end_date = pl.lit(datetime.now().date(), dtype=pl.Datetime(time_unit='ms', time_zone='Asia/Shanghai'))
+    # 使用今天之前的数据做历史。如果昨天的数据有问题，可以取更早一天，注意节假日
+    prepare_mmap(end_date=end_date - pl.duration(days=0))
 
-    print("!!!重置文件指针成功!!!")
+    # TODO 从指定文件加载tick数据，转换成日线和分钟
+    FILE_d1t_list = [
+        # 历史tick数据。注意不要与prepare_mmap的数据重叠
+        # r"F:\backup\20250521\d1t.npy",
+        # 当日实时tick数据
+        FILE_d1t,
+    ]
 
-    for i, file in enumerate(dt1s):
-        print("=" * 60)
-        do(file, is_live=i == DAYS - 1)
-        print()
+    print("=" * 60)
+    for i, file in enumerate(FILE_d1t_list):
+        do(file, is_live=i == len(FILE_d1t_list) - 1)

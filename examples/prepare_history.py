@@ -1,3 +1,6 @@
+"""
+使用prepaer_history.py准备数据时一定要留意数据的时间是否够。本人多次遇到QMT下不动，或提示下载完成，但数据只下了一截
+"""
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -26,37 +29,39 @@ def save_1d(start_time, end_time):
     period = '1d'
     print(start_time, end_time, period)
     df = get_local_data_wrap(G.沪深A股, period, start_time, end_time, data_dir=DATA_DIR)
-    df.write_parquet(HISTORY_STOCK_1d)
     print('沪深A股_1d===========')
-    print(df)
+    print(df.select(min_time=pl.min('time'), max_time=pl.max('time'), count=pl.count('time')))
+    df.write_parquet(HISTORY_STOCK_1d)
+
+    # print(df)
     df = get_local_data_wrap(G.沪深指数, period, start_time, end_time, data_dir=DATA_DIR)
-    df.write_parquet(HISTORY_INDEX_1d)
     print('沪深指数_1d===========')
-    print(df)
+    print(df.select(min_time=pl.min('time'), max_time=pl.max('time'), count=pl.count('time')))
+    df.write_parquet(HISTORY_INDEX_1d)
 
 
 def save_1m(start_time, end_time):
     period = '1m'
     print(start_time, end_time, period)
     df = get_local_data_wrap(G.沪深A股, period, start_time, end_time, data_dir=DATA_DIR)
-    df.write_parquet(HISTORY_STOCK_1m)
     print('沪深A股_1m===========')
-    print(df)
+    print(df.select(min_time=pl.min('time'), max_time=pl.max('time'), count=pl.count('time')))
+    df.write_parquet(HISTORY_STOCK_1m)
 
 
 def save_5m():
     period = '5m'
     df = pl.read_parquet(HISTORY_STOCK_1m)  # .filter(pl.col('stock_code') == '000001.SZ')
     df = convert_1m_to_5m(df, period, closed="right", label="right")
-    df.write_parquet(HISTORY_STOCK_5m)
     print('沪深A股_5m===========')
-    print(df)
+    print(df.select(min_time=pl.min('time'), max_time=pl.max('time'), count=pl.count('time')))
+    df.write_parquet(HISTORY_STOCK_5m)
 
 
 if __name__ == "__main__":
     print('1. 请先在QMT普通版中手动下数据')
     print('2. 然后在QMT极速版中运行本脚本')
-    print('3. 请在合并后的数据中查看范围是否合适，以防上一步的数据下载不全')
+    print('3. 一定要查看数据是否下载完整')
     # 下午3点半后才能下载当天的数据
     end_time = datetime.now() - timedelta(hours=15, minutes=30)
     end_time = end_time.strftime("%Y%m%d")

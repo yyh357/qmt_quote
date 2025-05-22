@@ -7,6 +7,7 @@ from numba import njit
 from xtquant import xtconstant, xtdata
 from xtquant.xtconstant import *  # noqa
 
+from examples.config import TOTAL_ASSET
 from qmt_quote.enums import SizeType, BoardType
 from qmt_quote.utils import get_board_type
 from qmt_quote.utils_qmt import get_instrument_detail_wrap
@@ -382,10 +383,6 @@ def send_orders_1(trader, account, details, npyt_obj: NPYT):
         - board_type:int (required)
         - DownStopPrice:float (required)
         - UpStopPrice:float (required)
-    d1d1
-        日线内存映射文件数据
-    d1d2
-        日线内存映射文件索引
 
     Returns
     -------
@@ -405,7 +402,8 @@ def send_orders_1(trader, account, details, npyt_obj: NPYT):
     end = npyt_obj.end()
     assert end > 0, 'No data in memory mapping file.'
 
-    ticks = pd.DataFrame(npyt_obj.data()).set_index('stock_code')
+    ticks = pd.DataFrame(npyt_obj.tail(TOTAL_ASSET)).drop_duplicates(
+        subset=['stock_code'], keep='last').set_index('stock_code')
     # volume与Position中重名，所以改一下。其他名字与get_full_tick相同
     ticks.rename(columns={'close': 'lastPrice', 'preClose': 'lastClose', 'volume': 'VOLUME'}, inplace=True)
     # 合并涨跌停

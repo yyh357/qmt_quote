@@ -74,7 +74,7 @@ def get_full_tick_1d(stock_list: List[str], level: int, rename: bool) -> pd.Data
     return ticks
 
 
-def load_history_data(path: str) -> pl.DataFrame:
+def load_history_data(path: str, type: int = InstrumentType.Stock) -> pl.DataFrame:
     """加载历史数据，并做一定的调整
 
     Parameters
@@ -83,9 +83,27 @@ def load_history_data(path: str) -> pl.DataFrame:
 
     """
     df = pl.read_parquet(path)
-    df = df.filter(pl.col('suspendFlag') == 0).with_columns(
-        pl.col('open', 'high', 'low', 'close', 'preClose').cast(pl.Float32),
-        pl.col('volume').cast(pl.UInt64),
+    df = (
+        df
+        .filter(pl.col('suspendFlag') == 0)
+        .with_columns(
+            open_dt=pl.lit(0).cast(pl.UInt64),
+            close_dt=pl.lit(0).cast(pl.UInt64),
+            avg_price=pl.lit(0),
+            askPrice_1=pl.lit(0),
+            bidPrice_1=pl.lit(0),
+            askVol_1=pl.lit(0),
+            bidVol_1=pl.lit(0),
+            askVol_2=pl.lit(0),
+            bidVol_2=pl.lit(0),
+            type=pl.lit(type).cast(pl.UInt8),
+        )
+        .with_columns(
+            pl.col('open', 'high', 'low', 'close', 'preClose',
+                   "avg_price", "askPrice_1", "bidPrice_1").cast(pl.Float32),
+            pl.col('amount').cast(pl.Float64),
+            pl.col('volume').cast(pl.UInt64),
+        )
     )
     return df
 
@@ -100,7 +118,7 @@ def last_factor(arr: np.ndarray, func=None, filter_label: float = 0) -> pl.DataF
     his
         历史数据
     filter_label:int
-        取指定标签
+        取指定标签到。底层需要*1000
     func
         因子计算函数
 

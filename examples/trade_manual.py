@@ -91,10 +91,15 @@ if __name__ == "__main__":
 
             # 等市值买入
             arr = s1d.data()
-            # 条件过滤
+
             arr = arr[arr['boolean']]
             if arr.size == 0:
                 print("没有符合条件的股票")
+                continue
+            # TODO 条件过滤
+            arr = arr[arr['strategy_id'] == 1]
+            if arr.size == 0:
+                print("没有符合条件的策略")
                 continue
 
             df = send_orders_2(df, pd.DataFrame(arr), 0.05, or_volume=True)
