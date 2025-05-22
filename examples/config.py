@@ -1,3 +1,15 @@
+"""
+D盘：QMT安装目录和数据
+F盘：备份数据使用
+M盘：内存盘，也是内存映射文件存放盘。盘后将归档到F盘。重启后自动清空
+
+内存大于等于64G，建议使用内存盘。至少分配12G
+
+ImDisk Toolkit
+https://imdisk-toolkit.en.lo4d.com/download
+
+"""
+
 # =====历史行情======
 # TODO 历史数据目录，使用实盘QMT标准版，可以手工下载历史数据，然后在miniquant中读出,也可用第三方数据
 DATA_DIR = r"D:\e海方舟-量化交易版\datadir"

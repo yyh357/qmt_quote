@@ -77,7 +77,7 @@ def prepare_mmap(end_date: pl.datetime):
     d5m.clear().append(his_stk_5m.select(DTYPE_STOCK_1m.names).to_numpy(structured=True))
     d1d.clear().append(his_stk_1d.select(DTYPE_STOCK_1m.names).to_numpy(structured=True))
 
-    logger.info("d1m:{:.4f}, d5m:{:.4f}, d1d:{:.4f}, 注意：0表示空间不够没有插入",
+    logger.info("d1m:{:.4f}, d5m:{:.4f}, d1d:{:.4f}, 注意：0表示空间不够没有插入，0.8以上通常空间不够当天使用，会崩溃",
                 d1m.end() / d1m.capacity(),
                 d5m.end() / d5m.capacity(),
                 d1d.end() / d1d.capacity(),

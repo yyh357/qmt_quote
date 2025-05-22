@@ -1,5 +1,9 @@
 """
 使用prepaer_history.py准备数据时一定要留意数据的时间是否够。本人多次遇到QMT下不动，或提示下载完成，但数据只下了一截
+
+普通版和极速版可以同时开启
+
+建议交易日前一天就提前下载好，并准备好数据，然后看情况是否调整subscribe_minute.py的配置
 """
 import sys
 from datetime import datetime, timedelta
