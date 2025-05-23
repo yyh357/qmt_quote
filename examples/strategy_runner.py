@@ -67,11 +67,15 @@ def main(curr_time: int) -> None:
     分钟线建议取10:23标签，但日线建议全部
     """
     # 过滤时间。调整成分钟标签，是取当前更新中的K线，还是取上一根不变的K线？
-    label_1m = get_label(curr_time, 60, tz=3600 * 8) - 60
-    label_5m = get_label(curr_time, 300, tz=3600 * 8) - 300
+    label_1m = get_label(curr_time, 60, tz=3600 * 8) - 60  # 前60秒，取的是已经不变化的K线
+    label_5m = get_label(curr_time, 300, tz=3600 * 8) - 0  # -0表示变化的K线，-300前300秒固定K线
     # 日线, 东八区处理
-    label_1d = get_label(curr_time, 86400, tz=3600 * 8) - 86400
+    label_1d = get_label(curr_time, 86400, tz=3600 * 8) - 0  # -0表示变化的K线，-86400，表示昨天日线
 
+    print(datetime.fromtimestamp(curr_time))
+    print(datetime.fromtimestamp(label_1m))
+    print(datetime.fromtimestamp(label_5m))
+    print(datetime.fromtimestamp(label_1d))
     # 秒转毫秒，因为qmt的时间戳是毫秒
     label_1m *= 1000
     label_5m *= 1000
@@ -79,9 +83,9 @@ def main(curr_time: int) -> None:
 
     t1 = time.perf_counter()
     # TODO 计算因子
-    df1m = last_factor(d1m.tail(TAIL_N), factor_func_1m, label_1m, label_1m)  # 1分钟固定线
-    df5m = last_factor(d5m.tail(TAIL_N), factor_func_5m, label_5m, label_5m)  # 5分钟固定线
-    df1d = last_factor(d1d.tail(TAIL_N), factor_func_1d, 0, label_1d)  # 日线，要求当天K线是动态变化的
+    df1m = last_factor(d1m.tail(TAIL_N), factor_func_1m, label_1m, label_1m)  # 1分钟线
+    df5m = last_factor(d5m.tail(TAIL_N), factor_func_5m, label_5m, label_5m)  # 5分钟线
+    df1d = last_factor(d1d.tail(TAIL_N), factor_func_1d, label_1d, label_1d)  # 日线，要求当天K线是动态变化的
     t2 = time.perf_counter()
 
     # if df1m.is_empty():
@@ -101,7 +105,7 @@ def main(curr_time: int) -> None:
     # 内存文件映射读取
     start, end, step = bm_s1d.extend(s1t.read(n=BARS_PER_DAY), get_label_stock_1d, 3600 * 8)
     # 只显示最新的3条
-    print(end, datetime.fromtimestamp(curr_time), datetime.now(), t2 - t1)
+    print(end, datetime.now(), t2 - t1)
     print(s1d.tail(3))
 
 
