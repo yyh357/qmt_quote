@@ -72,22 +72,28 @@ def main(curr_time: int) -> None:
     # 日线, 东八区处理
     label_1d = get_label(curr_time, 86400, tz=3600 * 8) - 86400
 
+    # 秒转毫秒，因为qmt的时间戳是毫秒
+    label_1m *= 1000
+    label_5m *= 1000
+    label_1d *= 1000
+
     t1 = time.perf_counter()
     # TODO 计算因子
-    df1m = last_factor(d1m.tail(TAIL_N), factor_func_1m, label_1m * 1000)  # 1分钟固定线
-    df5m = last_factor(d5m.tail(TAIL_N), factor_func_5m, label_5m * 1000)  # 5分钟固定线
-    df1d = last_factor(d1d.tail(TAIL_N), factor_func_1d, 0)  # 日线，要求当天K线是动态变化的
+    df1m = last_factor(d1m.tail(TAIL_N), factor_func_1m, label_1m, label_1m)  # 1分钟固定线
+    df5m = last_factor(d5m.tail(TAIL_N), factor_func_5m, label_5m, label_5m)  # 5分钟固定线
+    df1d = last_factor(d1d.tail(TAIL_N), factor_func_1d, 0, label_1d)  # 日线，要求当天K线是动态变化的
     t2 = time.perf_counter()
+
     # if df1m.is_empty():
     #     print("没有1分钟数据，返回")
     #     return
 
-        # 测试用，观察time/open_dt/close_dt
+    # 测试用，观察time/open_dt/close_dt
     print(df1m.tail(1))
     print(df5m.tail(1))
     print(df1d.tail(1))
 
-    # 将3个信号更新到内存文件映射
+    # 将3个信号增量更新到内存文件映射
     s1t.append(to_array(df1m, strategy_id=1))
     s1t.append(to_array(df5m, strategy_id=2))
     s1t.append(to_array(df1d, strategy_id=3))
