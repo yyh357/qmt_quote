@@ -28,8 +28,8 @@ d1m = NPYT(FILE_d1m).load(mmap_mode="r")
 d5m = NPYT(FILE_d5m).load(mmap_mode="r")
 d1d = NPYT(FILE_d1d).load(mmap_mode="r")
 
-# TODO 策略数量
-STRATEGY_COUNT = 3
+# TODO 策略数量，本来只用到了3个策略，但为了防止溢出，申请了4份空间
+STRATEGY_COUNT = 4
 # 顺序添加的信号
 s1t = NPYT(FILE_s1t, dtype=DTYPE_SIGNAL_1t).save(capacity=BARS_PER_DAY * STRATEGY_COUNT).load(mmap_mode="r+")
 # 日频信号

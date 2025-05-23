@@ -133,6 +133,6 @@ def last_factor(arr: np.ndarray, func=None, filter_label1: float = 0, filter_lab
         df = func(df)
     if filter_label2 > 0:
         # df = df.filter(pl.col('time').dt.timestamp(time_unit='ms') == filter_label2)
-        df = df.filter(pl.col('time') == filter_label2)
+        df = df.filter(pl.col('time') >= filter_label2)
     df = cast_datetime(df, col=pl.col('time', 'open_dt', 'close_dt'))
     return df
