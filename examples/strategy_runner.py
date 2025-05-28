@@ -1,98 +1,116 @@
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import polars as pl
+from npyt import NPYT
 
 # 添加当前目录和上一级目录到sys.path
 sys.path.insert(0, str(Path(__file__).parent))  # 当前目录
 sys.path.insert(0, str(Path(__file__).parent.parent))  # 上一级目录
 
-import time  # noqa
-from datetime import datetime
-
-import pandas as pd
-import polars as pl
-
-from examples.config import FILE_d1m, FILE_d1d, TOTAL_1m, TOTAL_1d, TICKS_PER_MINUTE, FILE_d5m, TOTAL_5m, HISTORY_STOCK_1d, HISTORY_STOCK_1m, HISTORY_STOCK_5m, FILE_s1t, FILE_s1d
-from examples.factor_calc import main as factor_func
-from qmt_quote.bars.labels import get_label_stock_1d
+from examples.config import (FILE_d1m, FILE_d1d, FILE_d5m, FILE_s1t, FILE_s1d, BARS_PER_DAY, TOTAL_ASSET)
+from qmt_quote.bars.labels import get_label_stock_1d, get_label
 from qmt_quote.bars.signals import BarManager as BarManagerS
-from qmt_quote.dtypes import DTYPE_STOCK_1m, DTYPE_SIGNAL_1t, DTYPE_SIGNAL_1m
-from qmt_quote.memory_map import get_mmap, SliceUpdater, update_array2
-from qmt_quote.utils_qmt import load_history_data, last_factor
+from qmt_quote.dtypes import DTYPE_SIGNAL_1t, DTYPE_SIGNAL_1m
+from qmt_quote.utils_qmt import last_factor
 
-columns = list(DTYPE_SIGNAL_1t.names)
+# TODO 这里简单模拟了分钟因子和日线因子
+from examples.factor_calc import main as factor_func_1m  # noqa
+from examples.factor_calc import main as factor_func_5m  # noqa
+from examples.factor_calc import main as factor_func_1d  # noqa
 
-# TODO 策略数量
-STRATEGY_COUNT = 3
 # K线
-d1d1, d1d2 = get_mmap(FILE_d1d, DTYPE_STOCK_1m, TOTAL_1d, readonly=True)
-d1m1, d1m2 = get_mmap(FILE_d1m, DTYPE_STOCK_1m, TOTAL_1m, readonly=True)
-d5m1, d5m2 = get_mmap(FILE_d5m, DTYPE_STOCK_1m, TOTAL_5m, readonly=True)
-# 信号
-s1t1, s1t2 = get_mmap(FILE_s1t, DTYPE_SIGNAL_1t, TOTAL_1m * STRATEGY_COUNT, readonly=False)
-s1d1, s1d2 = get_mmap(FILE_s1d, DTYPE_SIGNAL_1m, TOTAL_1d * STRATEGY_COUNT, readonly=False)
+d1m = NPYT(FILE_d1m).load(mmap_mode="r")
+d5m = NPYT(FILE_d5m).load(mmap_mode="r")
+d1d = NPYT(FILE_d1d).load(mmap_mode="r")
 
-# 约定df1存1分钟数据，df2存日线数据
-slice_d1d = SliceUpdater(min1=TOTAL_1d, overlap_ratio=3, step_ratio=30)
-slice_d1m = SliceUpdater(min1=TICKS_PER_MINUTE, overlap_ratio=3, step_ratio=30)
-slice_d5m = SliceUpdater(min1=TICKS_PER_MINUTE * 5, overlap_ratio=3, step_ratio=30)
-# 策略数量
-slice_s1m = SliceUpdater(min1=TOTAL_1d * STRATEGY_COUNT, overlap_ratio=3, step_ratio=30)
+# TODO 策略数量，本来只用到了3个策略，但为了防止溢出，申请了4份空间
+STRATEGY_COUNT = 4
+# 顺序添加的信号
+s1t = NPYT(FILE_s1t, dtype=DTYPE_SIGNAL_1t).save(capacity=BARS_PER_DAY * STRATEGY_COUNT).load(mmap_mode="r+")
+# 日频信号
+s1d = NPYT(FILE_s1d, dtype=DTYPE_SIGNAL_1m).save(capacity=TOTAL_ASSET * STRATEGY_COUNT).load(mmap_mode="r+")
+
+# 重置信号位置
+s1t.clear()
+s1d.clear()
 
 pd.set_option('display.width', 1000)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', None)
 
-# 取历史，不建议太长，只要保证最新数据生成正常即可
-his_stk_1d = load_history_data(HISTORY_STOCK_1d)
-his_stk_1m = load_history_data(HISTORY_STOCK_1m)
-his_stk_5m = load_history_data(HISTORY_STOCK_5m)
-# 仅当日
-his_stk_1d = None
-his_stk_1m = None
-his_stk_5m = None
+# TODO 根据策略，在单股票上至少需要的窗口长度+1，然后乘股票数，再多留一些余量
+# 窗口长度为何要+1，因为最新的K线还在变化中，为了防止信号闪烁，用户在计算前可能会剔除最后一根K线
+TAIL_N = 120000
 
 
-def to_pandas(df: pl.DataFrame, strategy_id: int = 0) -> pd.DataFrame:
-    df = df.select("stock_code", pl.col("time").cast(pl.UInt64),
-                   strategy_id=strategy_id,
-                   float32=pl.col('A').cast(pl.Float32),
-                   int32=pl.col('B').cast(pl.Int32),
-                   boolean=pl.col('OUT').cast(pl.Boolean),
-                   ).to_pandas()
-    return df
+def to_array(df: pl.DataFrame, strategy_id: int = 0) -> np.ndarray:
+    arr = df.select(
+        "stock_code", pl.col("time").cast(pl.UInt64),
+        strategy_id=strategy_id,
+        float32=pl.col('A').cast(pl.Float32),
+        int32=pl.col('B').fill_null(0).cast(pl.Int32),
+        boolean=pl.col('OUT').cast(pl.Boolean),
+    ).select(DTYPE_SIGNAL_1t.names).to_numpy(structured=True)
+
+    return arr
 
 
 def main(curr_time: int) -> None:
-    # 过滤时间。调整成成分钟标签，是取当前更新中的K线，还是去上一根不变的K线
-    label_1m = (curr_time // 60 * 60 - 60) * 1000
-    label_5m = (curr_time // 300 * 300 - 300) * 1000
+    """
+    时间正好由10:23切换到10:24,这时curr_time标记的是10:24
+    10:24 bar一直在慢慢更新，10:23 bar已经固定
+    分钟线建议取10:23标签，但日线建议全部
+    """
+    # 过滤时间。调整成分钟标签，是取当前更新中的K线，还是取上一根不变的K线？
+    label_1m = get_label(curr_time, 60, tz=3600 * 8) - 60  # 前60秒，取的是已经不变化的K线
+    label_5m = get_label(curr_time, 300, tz=3600 * 8) - 0  # -0表示变化的K线，-300前300秒固定K线
     # 日线, 东八区处理
-    label_1d = ((curr_time + 3600 * 8) // 86400 * 86400 - 3600 * 8) * 1000
+    label_1d = get_label(curr_time, 86400, tz=3600 * 8) - 0  # -0表示变化的K线，-86400，表示昨天日线
 
-    # 更新当前位置
-    slice_d1d.update(int(d1d2[0]))  # 日线
-    slice_d1m.update(int(d1m2[0]))  # 1分钟
-    slice_d5m.update(int(d5m2[0]))  # 5分钟
+    print(datetime.fromtimestamp(curr_time))
+    print(datetime.fromtimestamp(label_1m))
+    print(datetime.fromtimestamp(label_5m))
+    print(datetime.fromtimestamp(label_1d))
+    # 秒转毫秒，因为qmt的时间戳是毫秒
+    label_1m *= 1000
+    label_5m *= 1000
+    label_1d *= 1000
 
-    # 取今天全部数据和历史数据计算因子，但只取最新的值
-    df = last_factor(d1m1[slice_d1m.for_all()], his_stk_1m, factor_func, label_1m)
-    if df.is_empty():
-        return
+    t1 = time.perf_counter()
+    # TODO 计算因子
+    df1m = last_factor(d1m.tail(TAIL_N), factor_func_1m, label_1m, label_1m)  # 1分钟线
+    df5m = last_factor(d5m.tail(TAIL_N), factor_func_5m, label_5m, label_5m)  # 5分钟线
+    df1d = last_factor(d1d.tail(TAIL_N), factor_func_1d, label_1d, label_1d)  # 日线，要求当天K线是动态变化的
+    t2 = time.perf_counter()
 
-    # 只对最新值转换格式
-    df = to_pandas(df, strategy_id=1)
-    # 这里表面上是参照tick数据顺序更新，但上层是按
-    start, end, step = update_array2(s1t1, s1t2, df[columns], index=False)
-    # 更新方式，全量更新
-    start, end, step = bm_s1d.extend(s1t1[start:end], get_label_stock_1d, 3600 * 8)
+    # if df1m.is_empty():
+    #     print("没有1分钟数据，返回")
+    #     return
+
+    # 测试用，观察time/open_dt/close_dt
+    print(df1m.tail(1))
+    print(df5m.tail(1))
+    print(df1d.tail(1))
+
+    # 将3个信号增量更新到内存文件映射
+    s1t.append(to_array(df1m, strategy_id=1))
+    s1t.append(to_array(df5m, strategy_id=2))
+    s1t.append(to_array(df1d, strategy_id=3))
+
+    # 内存文件映射读取
+    start, end, step = bm_s1d.extend(s1t.read(n=BARS_PER_DAY), get_label_stock_1d, 3600 * 8)
     # 只显示最新的3条
-    start = max(end - 3, 0)
-    print(end, datetime.fromtimestamp(curr_time))
-    print(s1d1[start:end])
+    print(end, datetime.now(), t2 - t1)
+    print(s1d.tail(3))
 
 
 if __name__ == "__main__":
-    bm_s1d = BarManagerS(s1d1, s1d2)
+    bm_s1d = BarManagerS(s1d._a, s1d._t)
 
     # 实盘运行
     last_time = -1
@@ -102,6 +120,7 @@ if __name__ == "__main__":
         if curr_time == last_time:
             time.sleep(0.5)
             continue
+        # 正好在分钟切换时才会到这一步
         last_time = curr_time
         main(curr_time)
 

@@ -12,7 +12,7 @@ from tqdm import tqdm
 from xtquant import xtdata
 
 from qmt_quote.enums import InstrumentType
-from qmt_quote.utils import cast_datetime, concat_dataframes_from_dict, ticks_to_dataframe, arr_to_pl, concat_interday, calc_factor1
+from qmt_quote.utils import cast_datetime, concat_dataframes_from_dict, ticks_to_dataframe, calc_factor1
 
 
 def download_history_data2_wrap(desc: str, stock_list: List[str], period: str, start_time: str, end_time: str) -> None:
@@ -21,13 +21,15 @@ def download_history_data2_wrap(desc: str, stock_list: List[str], period: str, s
     日线下得动，分钟线下不动？还是建议手动下载
     """
     pbar = tqdm(total=len(stock_list), desc=desc)
-    xtdata.download_history_data2(stock_list, period=period, start_time=start_time, end_time=end_time, incrementally=True, callback=lambda x: pbar.update(1))
+    xtdata.download_history_data2(stock_list, period=period, start_time=start_time, end_time=end_time,
+                                  incrementally=True, callback=lambda x: pbar.update(1))
     while pbar.n < pbar.total:
         time.sleep(3)
     pbar.close()
 
 
-def get_local_data_wrap(stock_list: List[str], period: str, start_time: str, end_time: str, data_dir: str) -> pl.DataFrame:
+def get_local_data_wrap(stock_list: List[str], period: str, start_time: str, end_time: str,
+                        data_dir: str) -> pl.DataFrame:
     """获取本地历史数据
 
     Notes
@@ -72,7 +74,7 @@ def get_full_tick_1d(stock_list: List[str], level: int, rename: bool) -> pd.Data
     return ticks
 
 
-def load_history_data(path: str) -> pl.DataFrame:
+def load_history_data(path: str, type: int = InstrumentType.Stock) -> pl.DataFrame:
     """加载历史数据，并做一定的调整
 
     Parameters
@@ -81,37 +83,56 @@ def load_history_data(path: str) -> pl.DataFrame:
 
     """
     df = pl.read_parquet(path)
-    df = df.filter(pl.col('suspendFlag') == 0).with_columns(
-        pl.col('open', 'high', 'low', 'close', 'preClose').cast(pl.Float32),
-        pl.col('volume').cast(pl.UInt64),
+    df = (
+        df
+        .filter(pl.col('suspendFlag') == 0)
+        .with_columns(
+            open_dt=pl.lit(0).cast(pl.UInt64),
+            close_dt=pl.lit(0).cast(pl.UInt64),
+            avg_price=pl.lit(0),
+            askPrice_1=pl.lit(0),
+            bidPrice_1=pl.lit(0),
+            askVol_1=pl.lit(0),
+            bidVol_1=pl.lit(0),
+            askVol_2=pl.lit(0),
+            bidVol_2=pl.lit(0),
+            type=pl.lit(type).cast(pl.UInt8),
+        )
+        .with_columns(
+            pl.col('open', 'high', 'low', 'close', 'preClose',
+                   "avg_price", "askPrice_1", "bidPrice_1").cast(pl.Float32),
+            pl.col('amount').cast(pl.Float64),
+            pl.col('volume').cast(pl.UInt64),
+        )
     )
     return df
 
 
-def last_factor(arr: np.ndarray, his: pl.DataFrame = None, func=None, filter_label: float = 0) -> pl.DataFrame:
+def last_factor(arr: np.ndarray, func=None, filter_label1: float = 0, filter_label2: float = 0) -> pl.DataFrame:
     """获取最终因子值
 
     Parameters
     ----------
     arr:
         当日分钟数据
-    his
-        历史数据
-    filter_label:int
-        取指定标签
+    filter_label1:int
+        只取已经完成的K线数据。底层需要*1000转ms
+    filter_label2:int
+        只取指定K线。底层需要*1000转ms
     func
         因子计算函数
 
     """
     arr = arr[arr['type'] == InstrumentType.Stock]  # 过滤掉指数，只处理股票
-    if filter_label > 0:
-        arr = arr[arr['time'] <= filter_label]
-    df = arr_to_pl(arr, col=pl.col('time', 'open_dt', 'close_dt'))
-    # TODO 如果这里能设置成df数据够长了就不合并了最好
-    df = concat_interday(his, df)
+    if filter_label1 > 0:
+        arr = arr[arr['time'] <= filter_label1]
+    df = pl.from_numpy(arr)
+    # 注意：时间没有转换成datetime类型
     df = calc_factor1(df)
     if func is not None:
         df = func(df)
-    if filter_label > 0:
-        df = df.filter(pl.col('time').dt.timestamp(time_unit='ms') == filter_label)
+    if filter_label2 > 0:
+        # df = df.filter(pl.col('time').dt.timestamp(time_unit='ms') == filter_label2)
+        df = df.filter(pl.col('time') >= filter_label2)
+    df = cast_datetime(df, col=pl.col('time', 'open_dt', 'close_dt'))
     return df

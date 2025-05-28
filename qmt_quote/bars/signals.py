@@ -93,14 +93,14 @@ class BarManager:
         self.bars = tmp1
         # self.bars = dict()
 
-        self.index: int = 0
         self.arr1: np.ndarray = arr1
         self.arr2: np.ndarray = arr2
+        self.index: int = int(self.arr2[1])
 
     def reset(self):
         self.bars.clear()
         self.index = 0
-        self.arr2[0] = 0
+        self.arr2[1] = 0
 
     def extend(self, signals: np.ndarray, get_label, get_label_arg1: int) -> Tuple[int, int, int]:
         """来ticks数据，更新bar数据
@@ -126,7 +126,7 @@ class BarManager:
                 self.index += 1
             bb.fill(self.arr1[bb.index], stock_code)
         # 记录位子
-        self.arr2[0] = self.index
+        self.arr2[1] = self.index
         return last_index, self.index, self.index - last_index
 
 
@@ -135,7 +135,7 @@ if os.environ.get('NUMBA_DISABLE_JIT', '0') != '1':
     tmp1[('600000.SH', -1)] = Bar()
     tmp1.clear()
 
-    idx_type = typeof(np.empty(64, dtype=np.uint64))
+    idx_type = typeof(np.empty(4, dtype=np.uint64))
     bar_type = typeof(np.empty(1, dtype=DTYPE_SIGNAL_1m))
     spec = [
         ('bars', typeof(tmp1)),

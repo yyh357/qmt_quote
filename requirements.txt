@@ -1,8 +1,10 @@
 numpy
 pandas
 polars
+pyarrow
 loguru
 tqdm
 expr_codegen
 polars_ta
 xtquant
+npyt
